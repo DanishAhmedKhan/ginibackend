@@ -1,0 +1,6 @@
+{
+    "name": "Gini",
+    "server": {
+        "port": 4000
+    }
+}
