@@ -3,7 +3,7 @@ const config = require('config');
 const jwt = require('jsonwebtoken');
 
 const Schema = mongoose.Schema;
-const ObjectId = Scheam.ObjectId;
+const ObjectId = Schema.ObjectId;
 
 const rideSchema = new Schema({
     bookedBy: {
@@ -29,7 +29,15 @@ const rideSchema = new Schema({
         booked: Date, 
         pickup: Date,
         drop: Date,
-
+    },
+    cancel: {
+        value: {
+            type: Boolean
+        },
+        by: {
+            type: String,
+            enum: ['user', 'driver', 'partner']
+        }
     }
 });
 

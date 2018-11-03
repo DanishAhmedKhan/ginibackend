@@ -104,7 +104,7 @@ const nearestPartner = async (req, res) => {
 
 const isPartnerOpen = async (req, res) => {
     const partner = findOne({
-        _id: req.body.driverId,
+        _id: req.body.partnerId,
     }, 'open');
 
     res.status(200).send(partner.open);

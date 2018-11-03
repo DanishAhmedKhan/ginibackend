@@ -75,7 +75,7 @@ const nearestDriver = async (req, res) => {
 
     const driver = await Driver.findOne({
         geolocation: {
-            $nearSphere: {
+            $near: {
                 $geometry: {
                     type: 'Point',
                     coordinates: [ req.body.lng, req.body.lat ]

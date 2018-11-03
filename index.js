@@ -15,12 +15,13 @@ const app = express();
 
 
 // Firebase Admin initialization
-var serviceAccount = require("path/to/serviceAccountKey.json");
+var serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://gini-backend.firebaseio.com"
 });
+
+//middlewares
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
