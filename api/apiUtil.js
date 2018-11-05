@@ -1,3 +1,5 @@
+const Joi = require('joi');
+
 module.exports.error = (msg) => {
     return {
         status: 'error',
@@ -12,6 +14,10 @@ module.exports.success = (msg) => {
     };
 };
 
-module.exports.validate = (schema) => {
-    
+
+module.exports.validate = (data, schemaObject) => {
+    const schema = Joi.object().keys(schemaObject);
+
+    const { error } = Joi.validate(data, schema);
+    return error;
 };

@@ -1,25 +1,39 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const config = require('config');
+const admin = require('firebase-admin');
 const _ = require('lodash');
+const __ = require('./apiUtil');
 const Joi = require('joi');
 const User = require('../schema/User');
 const Ride = require('../schema/Ride');
+const auth = require('../middlewares/auth');
 
 const router = express.Router();
 
 const signup = async (req, res) => {
-    const schema = Joi.object().keys({
+    console.log(req.header('x-gini-agent'));
+    console.log(req.header('x-user-auth-token'));
+
+
+    const error = __.validate(req.body, {
         email: Joi.string().required().min(5).max(255).email(),
         password: Joi.string().required().min(5).max(255),
         phoneNumber: Joi.string().required()
     });
-
-    const { error } = Joi.validate(req.body, schema);
     if (error) return res.status(400).send(error.details[0].message);
 
-    const user = await User.find({ email: req.body.email });
-    if (user.length === 0) return res.status(400).send('User already registered');
+    // const schema = Joi.object().keys({
+    //     email: Joi.string().required().min(5).max(255).email(),
+    //     password: Joi.string().required().min(5).max(255),
+    //     phoneNumber: Joi.string().required()
+    // });
+
+    // const { error } = Joi.validate(req.body, schema);
+    // if (error) return res.status(400).send(error.detacmdils[0].message);
+
+    let user = await User.findOne({ email: req.body.email });
+    console.log("User searched for email  ::  ", user);
+    if (user) return res.status(400).send('User already registered');
 
     user = _.pick(req.body, ['email', 'password', 'phoneNumber']);
 
@@ -28,21 +42,24 @@ const signup = async (req, res) => {
 
     const newUser = new User(user);
     await newUser.save();
-    const token = user.generateAuthToken();
+    const token = newUser.generateAuthToken();
 
-    res.header('x-gini-agent', 'user')
-       .header('x-user-auth-token', token)
+    res.header('x-user-auth-token', token)
        .status(200)
-       .send({status: 'success', msg: 'Signed up.'});
+       .send(__.success('Signed up.'));
 };
 
 const login = async (req, res) => {
-    const schema = Joi.object().keys({
-        email: Joi.string().required().min(5).max(255).email(),
-        password: Joi.string().required().min(5).max(255)
-    });
+    // const schema = Joi.object().keys({
+    //     email: Joi.string().required().min(5).max(255).email(),
+    //     password: Joi.string().required().min(5).max(255)
+    // });
 
-    const { error } = Joi.validate(req.body, schema);
+    // const { error } = Joi.validate(req.body, schema);
+    const error = __.validate(req.body, {
+        email: Joi.string().required().min(5).max(255).email(),
+        password: Joi.string().required().min(5).max(255),
+    });
     if (error) return res.status(400).send(error.details[0].message);
 
     const user = await User.findOne({ email: req.body.email });
@@ -52,10 +69,9 @@ const login = async (req, res) => {
     if (!validPassword) return res.status(400).send('Invalid email or password');
 
     const token = user.generateAuthToken();
-    res.header('x-gini-agent', 'user')
-       .header('x-user-auth-token', token)
+    res.header('x-user-auth-token', token)
        .status(200)
-       .send('');
+       .send(__.success('Loged in.'));
 };
 
 const logout = async (req, res) => {
@@ -107,6 +123,7 @@ router.post('/test', async (req, res) => {
 router.post('/signup', signup);
 router.post('/login', login);
 router.post('/logout', logout);
+router.post('/requestRide', auth, rideRequest);
 
 
 router.post('/testNotification', async (req, res) => {
@@ -114,12 +131,14 @@ router.post('/testNotification', async (req, res) => {
 
     // See documentation on defining a message payload.
     var message = {
-    data: {
-        score: '850',
-        time: '2:45'
-    },
-    token: registrationToken
+        data: {
+            title: "Message",
+            msg: "Hey Cristiano!"
+        },
+        token: registrationToken
     };
+
+    res.status(200).send('CR7 is the best');
 
     // Send a message to the device corresponding to the provided
     // registration token.
@@ -127,9 +146,11 @@ router.post('/testNotification', async (req, res) => {
     .then((response) => {
         // Response is a message ID string.
         console.log('Successfully sent message:', response);
+       
     })
     .catch((error) => {
         console.log('Error sending message:', error);
+        
     });
 }); 
 
