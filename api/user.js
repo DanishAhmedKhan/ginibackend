@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const admin = require('firebase-admin');
+const uid = require('uuid/v4');
 const _ = require('lodash');
 const __ = require('./apiUtil');
 const Joi = require('joi');
@@ -11,25 +12,12 @@ const auth = require('../middlewares/auth');
 const router = express.Router();
 
 const signup = async (req, res) => {
-    console.log(req.header('x-gini-agent'));
-    console.log(req.header('x-user-auth-token'));
-
-
     const error = __.validate(req.body, {
         email: Joi.string().required().min(5).max(255).email(),
         password: Joi.string().required().min(5).max(255),
         phoneNumber: Joi.string().required()
     });
     if (error) return res.status(400).send(error.details[0].message);
-
-    // const schema = Joi.object().keys({
-    //     email: Joi.string().required().min(5).max(255).email(),
-    //     password: Joi.string().required().min(5).max(255),
-    //     phoneNumber: Joi.string().required()
-    // });
-
-    // const { error } = Joi.validate(req.body, schema);
-    // if (error) return res.status(400).send(error.detacmdils[0].message);
 
     let user = await User.findOne({ email: req.body.email });
     console.log("User searched for email  ::  ", user);
@@ -50,12 +38,6 @@ const signup = async (req, res) => {
 };
 
 const login = async (req, res) => {
-    // const schema = Joi.object().keys({
-    //     email: Joi.string().required().min(5).max(255).email(),
-    //     password: Joi.string().required().min(5).max(255)
-    // });
-
-    // const { error } = Joi.validate(req.body, schema);
     const error = __.validate(req.body, {
         email: Joi.string().required().min(5).max(255).email(),
         password: Joi.string().required().min(5).max(255),
@@ -82,33 +64,54 @@ const addProfile = async (req, res) => {
 
 };
 
-const rideRequest = async (req, res) => {
-    const schema = Joi.object().keys({
+const changeToken = async (req, res) => {
+    const error = __.validate(req.body, {
+        token: Joi.string().required()
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
+    await User.updateOne({ _id: req.user._id }, {
+        $set: { token: req.body.token }
     });
 
-    const { error } = Joi.validate(req.body, schema);
+    res.status(200).send(__.success('Token Updated.'));
+};
+
+const rideRequest = async (req, res) => {
+    const error = validate(req.body, {
+       partnerId: Joi.string().required(),
+       customerCount: Joi.number().required(), 
+       username: Joi.string().required(),
+       partnerToken: Joi.string().required()
+    });
     if (error) res.status(400).send(error.details[0].message);
 
     const ride = {
         bookedBy: req.body.userId,
-        customers: req.body.customers,
         customerCount: req.body.customerCount,
         partner: req.body.partnerId,
-        'timing.booked': new Date()
     };
 
     const newRide = new Ride(ride);
     await newRide.save();
 
+    var message = {
+        data: {
+            status: 1, 
+            user: req.body.username,
+            userCount: req.body.customerCount
+        },
+        token: req.body.partnerToken
+    };
 
-    const isPartnerOpen = await axios.post('http://localhost:4000/api/partner/isPartnerOpen');
-    if (isPartnerOpen) {
-        
-        
-    } else {
-        // send notification to 
-    }
+    admin.messaging().send(message)
+        .then((response) => {
+            console.log('Successfully sent message:', response);   
+        }).catch((error) => {
+            console.log('Error sending message:', error);      
+        });
+
+    res.status(200).send(__.success(''));
 };
 
 const getAllUser = async (req, res) => {
@@ -116,14 +119,36 @@ const getAllUser = async (req, res) => {
     res.status(200).send(users);
 };
 
+const isLoggedIn = async (req, res) => {
+    const error = __.validate(req.body, {
+        userToken: Joi.string().required()
+    });
+    if (error) res.status(400).send('Token not send.');
+
+    const result = await User.findOne({ _id: req.body.userId }, 'login token');
+    const response = result.login && result.token != req.body.token;
+
+    res.status(200).send(__.success(response));
+};
+
+const isGreyListed = async (req, res) => {
+    const result = await User.findOne({ _id: req.body.userId }, 'greylist');
+
+    res.status(200).send(__.success(result));
+};
+
 router.post('/test', async (req, res) => {
     console.log('Testign route');
     res.status(200).send('CR7');
 });
+
 router.post('/signup', signup);
 router.post('/login', login);
-router.post('/logout', logout);
+router.post('/isLoggedIn', isLoggedIn);
+router.post('/logout', auth, logout);
+router.post('/changeToken', auth, changeToken);
 router.post('/requestRide', auth, rideRequest);
+router.get('/isGreyListed', auth, isGreyListed);
 
 
 router.post('/testNotification', async (req, res) => {
@@ -153,6 +178,13 @@ router.post('/testNotification', async (req, res) => {
         
     });
 }); 
+
+router.post('/updateLocation', async (req, res) => {
+    console.log('Lat', req.body.lat);
+    console.log("count ======= ", req.body.count);
+
+    res.status(200).send('Success CR7!');
+});
 
 
 module.exports = router;

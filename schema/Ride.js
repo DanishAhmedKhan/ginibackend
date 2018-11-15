@@ -25,10 +25,19 @@ const rideSchema = new Schema({
         type: ObjectId,
         ref: 'Partner'
     },
+    status: {
+        type: Number
+    },
     timing: {
-        booked: Date, 
-        pickup: Date,
-        drop: Date,
+        booked: {
+            type: Date, default: new Date()
+        },
+        pickup: {
+            type: Date, default: new Date()
+        },
+        drop:{
+            type: Date, default: new Date()
+        }
     },
     cancel: {
         value: {

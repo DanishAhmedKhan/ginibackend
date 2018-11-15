@@ -10,6 +10,9 @@ const userSchema = new Schema({
     deviceId: {
         type: String,
     },
+    token: {
+        type: String
+    },
     email: {
         type: String,
         unique: true,
@@ -29,10 +32,13 @@ const userSchema = new Schema({
     meta: {
 
     },
+    loggedIn: {
+        type: Boolean
+    },
     online: {
         type: Boolean
     },
-    pickuplOcations: [{
+    favouritePickupLocations: [{
         tag: String, 
         address: String
     }],
@@ -52,6 +58,23 @@ const userSchema = new Schema({
         coordinates: {
             type: [Number]
         }
+    },
+    rating: {
+        driver: {
+            type: Number,
+        },
+        partner: {
+            type: Number
+        }
+    },
+    greylist: {
+        value: Boolean,
+        misuseCount: Number, 
+        moneyDue: Number,
+        penalty: Number,
+        // payment: [{
+
+        // }]
     }
 });
 

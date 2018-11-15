@@ -6,6 +6,9 @@ const Schema = mongoose.Schema;
 const ObjectId = Schema.ObjectId;
 
 const driverSchema = new Schema({
+    token: {
+        type: String
+    },
     email: {
         tyoe: String
     },

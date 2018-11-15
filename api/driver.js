@@ -16,7 +16,7 @@ const signup = async (req, res) => {
     const { error } = Joi.validate(schema, req.body);
     if (error) return res.status(400).send(error.details[0].message);
 
-    const driver = await Driver.findPOne({ email: req.body.email });
+    let driver = await Driver.findPOne({ email: req.body.email });
     if (driver) return res.status(400).send('Driver already registered');
 
     driver = _.pick(req.body, ['name', 'email', 'password', 'phoneNumber']);

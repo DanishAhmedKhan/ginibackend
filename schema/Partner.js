@@ -14,6 +14,9 @@ const partnerSchema = new Schema({
         enum: ['restaurant'],
         lowercase: true
     },
+    token: {
+        type: String
+    },
     email: {
         type: String, 
         unique: true
@@ -22,8 +25,20 @@ const partnerSchema = new Schema({
         type: String
     },
     address: {
-        type: String
+        line1: String, 
+        line2: String, 
+        state: String, 
+        city: String, 
+        zip: String
     },
+    notification: [{
+        id: String,
+        code: Number, 
+        msg: {
+            user: String, 
+            userCount: Number
+        }
+    }],
     geolocation: {
         type: {
             type: String, 

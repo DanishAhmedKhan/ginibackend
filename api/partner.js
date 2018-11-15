@@ -2,20 +2,28 @@ const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcrypt');
 const _ = require('lodash');
+const __ = require('./apiUtil');
 const Partner = require('../schema/Partner');
 
 const router = express.Router();
 
 const signup = async (req, res) => {
-    const schema = Joi.object().keys({
+    // const schema = Joi.object().keys({
+    //     name: Joi.string().required(),
+    //     lat: Joi.number().precision(8).min(-90).max(90).required(),
+    //     lng: Joi.number().precision(8).min(-180).max(180).required(),
+    //     email: Joi.string().required().min(5).max(255).email(),
+    //     password: Joi.string().required().min(5).max(255)
+    // });
+
+    // const { error } = Joi.validate(req.body, schema);
+    const error = __.validate(req.body, {
         name: Joi.string().required(),
         lat: Joi.number().precision(8).min(-90).max(90).required(),
         lng: Joi.number().precision(8).min(-180).max(180).required(),
         email: Joi.string().required().min(5).max(255).email(),
         password: Joi.string().required().min(5).max(255)
     });
-
-    const { error } = Joi.validate(req.body, schema);
     if (error) return res.status(400).send(error.details[0].message);
 
     let partner = await Partner.findOne({ email: req.body.email });
@@ -43,12 +51,17 @@ const signup = async (req, res) => {
 };
 
 const login = async (req, res) => {
-    const schema = Joi.object().keys({
+    // const schema = Joi.object().keys({
+    //     email: Joi.string().required().min(5).max(255).email(),
+    //     password: Joi.string().required().min(5).max(255)
+    // });
+
+    // const { error } = Joi.validate(req.body, schema);
+    
+    const error = __.validate(req.body, {
         email: Joi.string().required().min(5).max(255).email(),
         password: Joi.string().required().min(5).max(255)
     });
-
-    const { error } = Joi.validate(req.body, schema);
     if (error) return res.status(400).send(error.details[0].message);
 
     const partner = await Partner.findOne({ email: req.body.email });
@@ -58,10 +71,9 @@ const login = async (req, res) => {
     if (!validPassword) return res.status(400).send('Invalid email or password');
 
     const token = partner.generateAuthToken();
-    res.header('x-gini-agent', 'partner')
-       .header('x-auth-token', token)
+    res.header('x-partner-auth-token', token)
        .status(200)
-       .send('Logged in.');
+       .send(__.success('Loged in.'));
 };
 
 const getAllPartners = async (req, res) => {
@@ -104,10 +116,10 @@ const nearestPartner = async (req, res) => {
 
 const isPartnerOpen = async (req, res) => {
     const partner = findOne({
-        _id: req.body.partnerId,
+        _id: req.body.agent._id,
     }, 'open');
 
-    res.status(200).send(partner.open);
+    res.status(200).send(__.success(partner.open));
 };
 
 router.post('/signup', signup);
