@@ -82,36 +82,53 @@ const rideRequest = async (req, res) => {
        partnerId: Joi.string().required(),
        customerCount: Joi.number().required(), 
        username: Joi.string().required(),
-       partnerToken: Joi.string().required()
+       partnerToken: Joi.string().required(),
+       userToken: Joi.string().required(),
+       pickupLat: Joi.number().precision(8).required(),
+       pickupLng: Joi.number().precision(8).required()
     });
-    if (error) res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).send(error.details[0].message);
 
+    const rideId = mongoose.Types.ObjectId();
     const ride = {
-        bookedBy: req.body.userId,
+        _id: rideId,
+        user: {
+          id: req.body.userId,
+          token: req.body.userToken  
+        },
+        partner: {
+            id: req.body.partnerId,
+            token: req.body.partnerToken
+        },
         customerCount: req.body.customerCount,
-        partner: req.body.partnerId,
+        pickupLocation: {
+            lat: req.body.pickupLat,
+            lng: req.body.pickupLng
+        },
+        status: PARTNER_NOTIFIED,
     };
 
     const newRide = new Ride(ride);
     await newRide.save();
 
-    var message = {
+    const message = {
         data: {
-            status: 1, 
-            user: req.body.username,
-            userCount: req.body.customerCount
+            status: PARTNER_RIDE_BOOK,
+            username: req.body.username,
+            userCount: req.body.customerCount,
+            rideId: rideId
         },
         token: req.body.partnerToken
     };
 
     admin.messaging().send(message)
         .then((response) => {
-            console.log('Successfully sent message:', response);   
+            console.log(response);   
         }).catch((error) => {
-            console.log('Error sending message:', error);      
+            console.log(error);      
         });
 
-    res.status(200).send(__.success(''));
+    res.status(200).send(__.success('Notification send to partner. Wait for the response.'));
 };
 
 const getAllUser = async (req, res) => {

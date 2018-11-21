@@ -18,6 +18,9 @@ const driverSchema = new Schema({
     phoneNumber: {
         type: String
     },
+    token: {
+        type: String
+    },
     status: {
         online: Boolean,
         passenger: Boolean,
@@ -33,7 +36,7 @@ const driverSchema = new Schema({
     geolocation: {
         type: {
             type: String,
-            enum: ['Point']
+            enum: [ 'Point' ]
         },
         coordinates: {
             type: [Number]
@@ -46,7 +49,13 @@ const driverSchema = new Schema({
     allRides: [{
         type: ObjectId,
         ref: 'Ride'
-    }]
+    }],
+    stats: {
+        declined: Number,
+        cancled: Number,
+        ride: Number,
+        rating: Number,
+    }
 });
 
 driverSchema.methods.generateAuthToken = function() {

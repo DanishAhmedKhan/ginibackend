@@ -6,9 +6,26 @@ const Schema = mongoose.Schema;
 const ObjectId = Schema.ObjectId;
 
 const rideSchema = new Schema({
-    bookedBy: {
-        type: ObjectId,
-        ref: 'User'
+    user: {
+        id: {
+            type: ObjectId,
+            ref: 'User'
+        },
+        token: String
+    },
+    driver: {
+        id: {
+            type: ObjectId,
+            ref: 'Driver'
+        },
+        token: String
+    },
+    partner: {
+        id: {
+            type: ObjectId, 
+            ref: 'Partner'
+        },
+        token: String
     },
     customers: [{
         type: ObjectId,
@@ -17,13 +34,9 @@ const rideSchema = new Schema({
     customerCount: {
         type: Number
     },
-    driver: {
-        type: ObjectId,
-        ref: 'Driver'
-    },
-    partner: {
-        type: ObjectId,
-        ref: 'Partner'
+    pickupLocation: {
+        lat: Number, 
+        lng: Number
     },
     status: {
         type: Number
