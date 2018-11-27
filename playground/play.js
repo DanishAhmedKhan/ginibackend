@@ -34,7 +34,8 @@ const router = express.Router();
 
 const autherSchema = new Schema({
     name: String,
-    age: Number,
+    age: String,
+    books: [ String ]
 });
 
 const Auther = mongoose.model('Auther', autherSchema);
@@ -42,38 +43,37 @@ const Auther = mongoose.model('Auther', autherSchema);
 const auther = async (req, res) => {
     const auther = {
         name: 'Danish Ahmed Khan',
-        age: 21.
+        age: 21
     };
-    
-    const newAuther = new Auther(auther);
-    const autherData = await newAuther.save();
-    console.log('Auther :; ');
-    console.log(autherData);
 
-    res.status(200).send(autherData);
+    const newAuther = new Auther(auther);
+    let auth = await newAuther.save();
+    console.log(auth);
+
+    const id = auth._id;
+    auth = await Auther.update({ _id: id }, {
+        $push: { books: { $each: [ 'Don', 'Bon', 'Gon', 'Ron' ] } }
+    });
+    console.log(auth);
+
+    auth = await Auther.update({ _id: id }, {
+        $pull: { books: 'Bon' }
+    }); 
+    console.log(auth);
+
+    auth = await Auther.update({ _id: id }, {
+        $pull: { books: 'Kon' }
+    });
+    console.log(auth);
+
+    res.status(200).send('Success!');
 }; 
 
 const printAuther = async (req, res) => {
-    const id = req.body.id;
-
-    const auther = await Auther.findOne({ _id: id });
-
-    console.log(auther);
-
-    res.status(200).send(auther);
-};  
-
-async function tt() {
     
-    const a = await Auther.findOne({ age: 21 });
-    console.log('shdjas');
-    console.log(a);
-}
+};
 
-console.log('Cristiano!');
-tt();
+router.post('/auther', auther);
+router.post('/printObject', printAuther);
 
-//router.post('/objectTest', auther);
-//router.post('/printObject', printAuther);
-
-//module.exports = router;
+module.exports = router;

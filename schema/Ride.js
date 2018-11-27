@@ -32,7 +32,11 @@ const rideSchema = new Schema({
         ref: 'User'
     }],
     customerCount: {
-        type: Number
+        user: Number, 
+        driver: Number
+    },
+    code: {
+        type: String
     },
     pickupLocation: {
         lat: Number, 
@@ -42,15 +46,10 @@ const rideSchema = new Schema({
         type: Number
     },
     timing: {
-        booked: {
-            type: Date, default: new Date()
-        },
-        pickup: {
-            type: Date, default: new Date()
-        },
-        drop:{
-            type: Date, default: new Date()
-        }
+        booked: Date,
+        pickup: Date,
+        drop: Date,
+        confirmed: Date, 
     },
     cancel: {
         value: {

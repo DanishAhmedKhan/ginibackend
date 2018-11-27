@@ -39,6 +39,7 @@ const partnerSchema = new Schema({
             userCount: Number
         }
     }],
+    rideCode: [ String ],
     geolocation: {
         type: {
             type: String, 

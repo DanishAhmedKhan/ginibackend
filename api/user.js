@@ -4,10 +4,12 @@ const admin = require('firebase-admin');
 const uid = require('uuid/v4');
 const _ = require('lodash');
 const __ = require('./apiUtil');
+const axios = require('axios');
 const Joi = require('joi');
 const User = require('../schema/User');
 const Ride = require('../schema/Ride');
 const auth = require('../middlewares/auth');
+const rideStatus = require('./rideStatus');
 
 const router = express.Router();
 
@@ -64,13 +66,13 @@ const addProfile = async (req, res) => {
 
 };
 
-const changeToken = async (req, res) => {
+const token = async (req, res) => {
     const error = __.validate(req.body, {
         token: Joi.string().required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    await User.updateOne({ _id: req.user._id }, {
+    await User.update({ _id: req.user._id }, {
         $set: { token: req.body.token }
     });
 
@@ -78,9 +80,9 @@ const changeToken = async (req, res) => {
 };
 
 const rideRequest = async (req, res) => {
-    const error = validate(req.body, {
+    const error = __.validate(req.body, {
        partnerId: Joi.string().required(),
-       customerCount: Joi.number().required(), 
+       customerCount: Joi.number().integer().required(),
        username: Joi.string().required(),
        partnerToken: Joi.string().required(),
        userToken: Joi.string().required(),
@@ -100,12 +102,14 @@ const rideRequest = async (req, res) => {
             id: req.body.partnerId,
             token: req.body.partnerToken
         },
-        customerCount: req.body.customerCount,
+        customerCount: {
+            user: req.body.customerCount
+        },
         pickupLocation: {
             lat: req.body.pickupLat,
             lng: req.body.pickupLng
         },
-        status: PARTNER_NOTIFIED,
+        status: rideStatus.USER_BOOKED,
     };
 
     const newRide = new Ride(ride);
@@ -113,7 +117,7 @@ const rideRequest = async (req, res) => {
 
     const message = {
         data: {
-            status: PARTNER_RIDE_BOOK,
+            status: rideStatus.USER_BOOKED,
             username: req.body.username,
             userCount: req.body.customerCount,
             rideId: rideId
@@ -122,10 +126,11 @@ const rideRequest = async (req, res) => {
     };
 
     admin.messaging().send(message)
-        .then((response) => {
+        .then(async (response) => {
             console.log(response);   
+            await Ride.update({ _id: rideId }, { $set: { status: rideStatus.PARTNER_NOTIFIED } });
         }).catch((error) => {
-            console.log(error);      
+            console.log(error);
         });
 
     res.status(200).send(__.success('Notification send to partner. Wait for the response.'));
@@ -163,7 +168,7 @@ router.post('/signup', signup);
 router.post('/login', login);
 router.post('/isLoggedIn', isLoggedIn);
 router.post('/logout', auth, logout);
-router.post('/changeToken', auth, changeToken);
+router.post('/token', auth, token);
 router.post('/requestRide', auth, rideRequest);
 router.get('/isGreyListed', auth, isGreyListed);
 
@@ -201,6 +206,34 @@ router.post('/updateLocation', async (req, res) => {
     console.log("count ======= ", req.body.count);
 
     res.status(200).send('Success CR7!');
+});
+
+router.post('/sample', async (req, res) => {
+    console.log('Sample route requested!');
+
+    const x = 13;
+    if (x == 123) return res.status(400).send(__.error('some error00'));
+
+    res.status(200).send('cristiano ronaldo');
+});
+
+router.post('/axiosTest', async (req, res) => {
+    try {
+        const apiResponse = await axios.post('http://localhost:4000/api/user/sample', {
+            x: 123
+        });
+        console.log(apiResponse.data);
+
+        
+    } catch (err) {
+        console.log('ERROR');
+        console.log(err.response);
+        //console.log(err);
+        console.log(err.response.data);
+        console.log(err.response.status);
+    }
+
+    res.status(200).send('sadjaskjdaskjdsajksa');
 });
 
 

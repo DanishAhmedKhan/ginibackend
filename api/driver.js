@@ -4,7 +4,9 @@ const _ = require('lodash');
 const __ = require('./apiUtil');
 const admin = require('firebase-admin');
 const axios = require('axios');
+const randomize = require('randomatic');
 const Driver = require('../schema/Driver');
+const rideStatus = require('./rideStatus');
 
 const router = express.Router();
 
@@ -113,17 +115,22 @@ const nearestDriver = async (req, res) => {
 };
 
 const requestNearestDriver = async (req, res) => {
-    const response = axios.post('htttp://localhost:4000/api/driver/nearestDriver', {
-        lat: req.body.lat,
-        lng: req.body.lng
-    });
-    if (response.status == 'error') 
-        return res.status(412).send(__.error('Unable to precess request.'));
-    const nearestDriver = response.data;
+    let nearestDriver;
+    try {
+        const apiResponse = await axios.post('htttp://localhost:4000/api/driver/nearestDriver', {
+            lat: req.body.lat,
+            lng: req.body.lng
+        }); 
+        nearestDrive = apiResponse.data;
+        if (nearestDriver == null)
+            return res.status(404).send(__.error('Driver not found.'));
+    } catch (err) {
+        return res.status(err.response.status).send(err.response.data);
+    }
 
     const message = {
         data: {
-            status: DRIVER_BOOK,
+            status: riseStatus.DRIVER_NOTIFIED,
             lat:req.body.lat,
             lng:req.body.lng,
         },
@@ -140,20 +147,20 @@ const requestNearestDriver = async (req, res) => {
     res.status(200).send(__.success('Request processed'));
 };
 
-const rideResponse = async (req, res) => {
+const driverResponse = async (req, res) => {
     const error = __.validate(req.body, {
         response: Joi.number().integer().required(),
         drivername: Joi.string().required(),
         driverPhoneNumber: Joi.string().required(),
         rideId: Joi.string().required(),
     });
-    if (error) return res.status(400).send(__.error.details[0].message);
+    if (error) return res.status(400).send(__.error(error.details[0].message));
     const response = req.body.response;
 
-    const ride = await rideRequest.update({ _id: req.body.rideId },
-        { $set: { status: req.body.status } }, { new: true });
+    const ride = await rideRequest.findOneAndUpdate({ _id: req.body.rideId },
+        { $set: { status: response } }, { new: true });
 
-    if (response == DRIVER_ACCEPTED) {
+    if (response == rideStatus.DRIVER_ACCEPTED) {
         await Driver.update({ _id: driverId }, { $set: {
             passenger: true,
             currentRide: req.body.rideId,
@@ -174,25 +181,110 @@ const rideResponse = async (req, res) => {
             }).catch(error => {
                 console.log(error);
             });
+
     } else if (response == DRIVER_DECLINED) {
         await Driver.update({ _id: driverId }, { $inc: {
             'stats.declined': 1,
         }});
 
-        const response = await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
-            lat: ride.pickupLocation.lat,
-            lng: ride.pickupLocation.lng
-        });
-        if (response.status == 'error')
-            return res.status(412).send(response.msg);
+        try {
+            const apiResponse = await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
+                lat: ride.pickupLocation.lat,
+                lng: ride.pickupLocation.lng
+            });
+        } catch (err) {
+            return res.status(err.response.status).send(err.response.data);
+        }
     }
 
-    res.status(200).send('');
+    res.status(200).send(__.success('Updated.'));
  };
+
+ const pickup = async (req, res) => {
+    const error = __.validate(req.body, {
+        rideId: Joi.string().required(),
+        customerCount: Joi.number().integer().required(),
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const ride = await Ride.findOneAndUpdate({ _id: rideId }, { $set: {
+        customerCount: { driver: req.body.customerCount },
+        status: rideStatus.DRIVER_PICKUP
+    }});
+
+    const code = randomize('A', 6);
+    const partnerId = ride.partner.id;
+    await Partner.update({ _id: partnerId }, {
+        $push: { rideCode: code }
+    });
+    await Ride.update({ _id: rideId }, {
+        $set: { code: code }
+    });
+
+    const message = {
+        data: {
+            code: code
+        },
+        token: ride.user.token
+    }
+
+    admin.messaging().send(message)
+        .then(response => {
+            console.log(response);
+        }).catch(error => {
+            console.log(error);
+        });
+
+    res.status(200).send(__.success('Updated.'));
+ };
+
+ const drop = async (req, res) => {
+    const error = __.validate(req.body, {
+        rideId: Joi.string().required(),
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
+        $set: { status: rideStatus.DRIVER_DROP }
+    });
+
+    const message = {
+        data: {
+
+        },
+        token: ride.partner.token
+    };
+
+    admin.messaging().send(message)
+        .then(response => {
+            console.log(response);
+        }).catch(error => {
+            console.log(error);
+        });
+
+    res.status(200).send(__.success('Updated.'));
+ }
+
+ const token = async (req, res) => {
+    const error = __.validate(req.body, {
+        token: Joi.string().required()
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    await Driver.update({ _id: driverId }, {
+        $set: { token: req.body.token }
+    });
+
+    res.status(200).send(__.success('Token updated.'));
+ }
 
 router.post('/signup', signup);
 router.post('/login', login);
 router.post('/nearestDriver', nearestDriver);
 router.post('/requestNearestDriver', requestNearestDriver);
+router.post('/location', location);
+router.post('/response', driverResponse);
+router.post('/pickup', pickup);
+router.post('/token', token);
 
 module.exports = router;

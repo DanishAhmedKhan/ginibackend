@@ -6,6 +6,7 @@ const __ = require('./apiUtil');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const Partner = require('../schema/Partner');
+const rideStatus = require('./rideStatus');
 
 const router = express.Router();
 
@@ -119,22 +120,24 @@ const partnerResponse = async (req, res) => {
         response: Joi.number().integer().required(),
         rideId: Joi.string().required(),
     });
-    if (error) return res.status(40).send(__.error(error.details[0].message));
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const response = req.body.status;
-    const ride = await Ride.findOneAndUpdate({ _id: rideId }, 
-        { $set: { status: status } }, { new: true });
+    const ride = await Ride.findOneAndUpdate({ _id: rideId },
+        { $set: { status: response } }, { new: true });
     const pickupLocation = ride.pickupLocation;
 
-    if (response == PARTNER_CONFIRMED) {
-        const response = await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
-            lat: pickupLocation.lat,
-            lng: pickupLocation.Lng,
-        });
-        if (response.status == 'error')
-            return res.status(412).send(response.msg);
+    if (response == rideStatus.PARTNER_CONFIRMED) {
+        try {
+            const apiResponse = await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
+                lat: pickupLocation.lat,
+                lng: pickupLocation.Lng,
+            });
+        } catch (err) {
+            return res.send(err.response.status).send(err.response.data);
+        }
 
-    } else if (response == PARTNER_DECLINED) {
+    } else if (response == rideStatus.PARTNER_DECLINED) {
         const userToken = ride.user.token;
         const message = {
             date: {
@@ -154,6 +157,39 @@ const partnerResponse = async (req, res) => {
     res.status(200).send(__.success('processed data'));
 };
 
+const token = async (req, res) => {
+    const error = __.validate(req.body, {
+        token: Joi.string().required()
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    await Partner.update({ _id: partnerId }, {
+        $set: { token: req.body.token }
+    });
+
+    res.status(200).send(__.success('Token updated.'));
+ }
+
+ const scanCode = async (req, res) => {
+    const error = __.validate(req.body, {
+        code: Joi.string().required()
+    });
+    if (error) return res.status(200).send(__.error(error.details[0].message));
+
+    const result = await Partner.update({ _id: partnerId }, {
+        $pull: { rideCode: code }
+    });
+
+    const modified = result.nModified == 1;
+    if (modified) {
+        await Ride.update({ _id: id }, {
+            $set: { status: rideStatus.SCAN_CONFIRMED }
+        });
+    }
+
+    res.status(200).send(__.success(modified));
+ }
+
 router.post('/signup', signup);
 router.post('/login', login);
 router.get('/getAllPartners', getAllPartners);
@@ -162,5 +198,7 @@ router.post('/partnerList', nearestPartner);
 router.delete('/deleteAllPartners', deleteAllPartners);
 router.post('/isPartnerOpen', isPartnerOpen);
 router.post('/partner', partner);
+router.post('/response', partnerResponse);
+router.post('/token', token);
 
 module.exports = router;
