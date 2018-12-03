@@ -19,7 +19,7 @@ const signup = async (req, res) => {
         password: Joi.string().required().min(5).max(255),
         phoneNumber: Joi.string().required()
     });
-    if (error) return res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     let user = await User.findOne({ email: req.body.email });
     console.log("User searched for email  ::  ", user);
@@ -47,10 +47,10 @@ const login = async (req, res) => {
     if (error) return res.status(400).send(error.details[0].message);
 
     const user = await User.findOne({ email: req.body.email });
-    if (!user) return res.status(400).send('Invalid email or password.');
+    if (!user) return res.status(400).send(__.error('Invalid email or password.'));
 
     const validPassword = bcrypt(req.body.password, user.password);
-    if (!validPassword) return res.status(400).send('Invalid email or password');
+    if (!validPassword) return res.status(400).send(__.error('Invalid email or password'));
 
     const token = user.generateAuthToken();
     res.header('x-user-auth-token', token)
@@ -89,14 +89,14 @@ const rideRequest = async (req, res) => {
        pickupLat: Joi.number().precision(8).required(),
        pickupLng: Joi.number().precision(8).required()
     });
-    if (error) return res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const rideId = mongoose.Types.ObjectId();
     const ride = {
         _id: rideId,
         user: {
-          id: req.body.userId,
-          token: req.body.userToken  
+            id: req.body.userId,
+            token: req.body.userToken  
         },
         partner: {
             id: req.body.partnerId,
@@ -114,10 +114,13 @@ const rideRequest = async (req, res) => {
 
     const newRide = new Ride(ride);
     await newRide.save();
+    await User.updateOne({ _id: userId }, {
+        $set: { currentRide: rideId }
+    });
 
     const message = {
         data: {
-            status: rideStatus.USER_BOOKED,
+            status: rideStatus.PARTNER_NOTIFIED,
             username: req.body.username,
             userCount: req.body.customerCount,
             rideId: rideId
@@ -126,10 +129,9 @@ const rideRequest = async (req, res) => {
     };
 
     admin.messaging().send(message)
-        .then(async (response) => {
-            console.log(response);   
-            await Ride.update({ _id: rideId }, { $set: { status: rideStatus.PARTNER_NOTIFIED } });
-        }).catch((error) => {
+        .then(response => {
+            console.log(response); 
+        }).catch(error => {
             console.log(error);
         });
 

@@ -6,6 +6,8 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const randomize = require('randomatic');
 const Driver = require('../schema/Driver');
+const User = require('../schema/User');
+const Partner = require('../schema/Partner');
 const rideStatus = require('./rideStatus');
 
 const router = express.Router();
@@ -82,9 +84,9 @@ const location = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    await Driver.update({ _id: driverId }, { $set: {
-        'geolocation.coordinates': [ req.body.lat, req.body.lng ]
-    }});
+    await Driver.update({ _id: driverId }, { 
+        $set: { 'geolocation.coordinates': [ req.body.lng, req.body.lat ] }
+    });
 
     res.status(200).send(_.seccess('Location updated.'));
 };
@@ -128,21 +130,14 @@ const requestNearestDriver = async (req, res) => {
         return res.status(err.response.status).send(err.response.data);
     }
 
-    const message = {
+    __.sendNotification({
         data: {
             status: riseStatus.DRIVER_NOTIFIED,
             lat:req.body.lat,
             lng:req.body.lng,
         },
         token: nearestDriver.token
-    };
-
-    admin.messaging().send(message)
-        .then(response => {
-            console.log(response);
-        }).catch(error => {
-            console.log(error);
-        });
+    });
 
     res.status(200).send(__.success('Request processed'));
 };
@@ -161,38 +156,43 @@ const driverResponse = async (req, res) => {
         { $set: { status: response } }, { new: true });
 
     if (response == rideStatus.DRIVER_ACCEPTED) {
-        await Driver.update({ _id: driverId }, { $set: {
-            passenger: true,
-            currentRide: req.body.rideId,
-        }});
+        await Driver.update({ _id: driverId }, { 
+            $set: {
+                passenger: true,
+                currentRide: req.body.rideId,
+            }
+        });
+        
+        __.sendNotification({
+            data: {
+                status: DRIVER_BOOKED,
+                rideId: rideId
+            },
+            token: ride.partner.token
+        });
 
-        const message = {
+        __.sendNotification({
             data: {
                 status: BOOKING_CONFIRMED,
                 name: req.body.driverName,
                 phoneNumber: req.body.driverPhoneNumber,
             },
             token: ride.user.token
-        };
-
-        admin.messaging().send(message)
-            .then(response => {
-                console.log(response);
-            }).catch(error => {
-                console.log(error);
-            });
+        });
 
     } else if (response == DRIVER_DECLINED) {
-        await Driver.update({ _id: driverId }, { $inc: {
-            'stats.declined': 1,
-        }});
+        await Driver.update({ _id: driverId }, { 
+            $inc: { 'stats.declined': 1 }
+        });
 
         try {
-            const apiResponse = await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
+            await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
                 lat: ride.pickupLocation.lat,
                 lng: ride.pickupLocation.lng
             });
         } catch (err) {
+            // notify admin
+
             return res.status(err.response.status).send(err.response.data);
         }
     }
@@ -214,10 +214,10 @@ const driverResponse = async (req, res) => {
 
     const code = randomize('A', 6);
     const partnerId = ride.partner.id;
-    await Partner.update({ _id: partnerId }, {
-        $push: { rideCode: code }
+    await Partner.updateOne({ _id: partnerId, 'currentRides.rideId': req.body.rideId }, {
+        $push: { 'currentRides.$.code': code }
     });
-    await Ride.update({ _id: rideId }, {
+    await Ride.updateOne({ _id: rideId }, {
         $set: { code: code }
     });
 
@@ -246,6 +246,17 @@ const driverResponse = async (req, res) => {
 
     const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
         $set: { status: rideStatus.DRIVER_DROP }
+    });
+
+    await Driver.updateOne({ _id: ride.driver.id }, {
+        $set: {
+            passenger: false,
+            currentRide: null
+        }
+    });
+
+    await User.updateOne({ _id: ride.user.id }, {
+        $set: { currentRide: null }
     });
 
     const message = {

@@ -39,7 +39,14 @@ const partnerSchema = new Schema({
             userCount: Number
         }
     }],
-    rideCode: [ String ],
+    currentRides: [{
+        _id: false,
+        rideId: {
+            type: ObjectId,
+            ref: 'Ride'
+        },
+        code: String
+    }],
     geolocation: {
         type: {
             type: String, 
@@ -52,10 +59,6 @@ const partnerSchema = new Schema({
     open: {
         type: Boolean
     },
-    currentRides: [{
-        type: ObjectId,
-        ref: 'Ride'
-    }],
     allRides: [{
         type: ObjectId,
         ref: 'Ride'

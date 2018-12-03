@@ -1,5 +1,4 @@
 module.exports = {
-    USER_BOOKED: 0,
     PARTNER_NOTIFIED: 1,
     PARTNER_CONFIRMED: 2,
     PARTNER_DECLINED: 3,

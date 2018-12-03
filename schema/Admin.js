@@ -20,6 +20,9 @@ const adminSchema = new Schema({
         min: 5,
         max: 1024
     },
+    token: {
+        type: String
+    },
     previlages: {
         admin: {
             type: Boolean,

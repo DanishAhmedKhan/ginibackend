@@ -32,48 +32,65 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const router = express.Router();
 
-const autherSchema = new Schema({
-    name: String,
-    age: String,
-    books: [ String ]
+const numberSchema = new Schema({
+    x: [{
+        _id: false,
+        a: String, 
+        b: String
+    }]
 });
 
-const Auther = mongoose.model('Auther', autherSchema);
+const Number = mongoose.model('Number', numberSchema);
 
-const auther = async (req, res) => {
-    const auther = {
-        name: 'Danish Ahmed Khan',
-        age: 21
+const test = async (req, res) => {
+    const num = new Number({});
+    const result = await num.save();
+    const id = result._id;
+    console.log(id);
+
+    const obj = {
+        a: '1'
     };
 
-    const newAuther = new Auther(auther);
-    let auth = await newAuther.save();
-    console.log(auth);
-
-    const id = auth._id;
-    auth = await Auther.update({ _id: id }, {
-        $push: { books: { $each: [ 'Don', 'Bon', 'Gon', 'Ron' ] } }
+    await Number.updateOne({ _id: id }, {
+        $push: { x: { a: '1' } }
     });
-    console.log(auth);
-
-    auth = await Auther.update({ _id: id }, {
-        $pull: { books: 'Bon' }
-    }); 
-    console.log(auth);
-
-    auth = await Auther.update({ _id: id }, {
-        $pull: { books: 'Kon' }
+    await Number.updateOne({ _id: id }, {
+        $push: { x: { a: '2' } }
     });
-    console.log(auth);
+    await Number.updateOne({ _id: id }, {
+        $push: { x: { a: '3' } }
+    });
 
-    res.status(200).send('Success!');
-}; 
+    const l = await Number.findOne({ _id: id });
+    console.log(l);
 
-const printAuther = async (req, res) => {
-    
+    await Number.updateOne({ _id: id, 'x.a': '1' }, {
+        $push: { 'x.$.b': 'Danish' }
+    });
+    await Number.updateOne({ _id: id, 'x.a': '2' }, {
+        $push: { 'x.$.b': 'Tanvir' }
+    });
+    await Number.updateOne({ _id: id, 'x.a': '3' }, {
+        $push: { 'x.$.b': 'Saif' }
+    });
+
+    const n = await Number.findOne({ _id: id });
+    console.log(n);
+
+    await Number.updateOne({ _id: id, 'x.b': 'Danish' }, {
+        $pull: { x: { b: 'Danish' } }
+    });
+    await Number.updateOne({ _id: id, 'x.b': 'Tanvir' }, {
+        $pull: { 'x.$.b': 'Tanvir' }
+    });
+
+    const o = await Number.findOne({ _id: id });
+    console.log(o);
+
+    res.status(200).send(o);
 };
 
-router.post('/auther', auther);
-router.post('/printObject', printAuther);
+router.post('/test', test);
 
 module.exports = router;

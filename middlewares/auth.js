@@ -4,7 +4,7 @@ const config = require('config');
 const auth = function (req, res, next) {
     const agent = req.header('x-gini-agent');
     const token = req.header('x-' + agent + '-auth-token');
-    if (!token) res.status(401).send('Access denied. No token provided.');
+    if (!token) return res.status(401).send('Access denied. No token provided.');
 
     try {
         const privateKey = config.get(agent + 'AuthToken');

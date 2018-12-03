@@ -2,3 +2,4 @@ node_modules/
 *.bat
 serviceAccountKey.json
 .secret.txt
+playground/

@@ -11,21 +11,24 @@ const rideSchema = new Schema({
             type: ObjectId,
             ref: 'User'
         },
-        token: String
+        token: String,
+        number: String
     },
     driver: {
         id: {
             type: ObjectId,
             ref: 'Driver'
         },
-        token: String
+        token: String,
+        number: String
     },
     partner: {
         id: {
             type: ObjectId, 
             ref: 'Partner'
         },
-        token: String
+        token: String,
+        number: String
     },
     customers: [{
         type: ObjectId,
