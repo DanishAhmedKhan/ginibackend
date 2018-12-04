@@ -133,7 +133,6 @@ const partnerResponse = async (req, res) => {
     const response = req.body.response;
     const ride = await Ride.findOneAndUpdate({ _id: rideId },
         { $set: { status: response } }, { new: true });
-    const pickupLocation = ride.pickupLocation;
 
     const { dispatch } = await Gini.findOne({}, 'dispatch');
 
@@ -144,36 +143,11 @@ const partnerResponse = async (req, res) => {
             });
 
             if (dispatch == 'auto' || dispatch == 'semi-auto') {
-                await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
-                    lat: pickupLocation.lat,
-                    lng: pickupLocation.Lng,
+                await axios.post('http://localhost:4000/api/driver/bookUserDriver', {
+                    ride: ride
                 });
             } 
         } catch (err) {
-
-            if (err.response.status == 404 && dispatch == 'auto') {
-                await User.updateOne({ _id: ride.user.id }, {
-                    $set: { currentRide: null }
-                });
-                await Partner.ypdateOne({ _id: ride.partner.id }, {
-                    $pull: { currentRides: { rideId: rideId } }
-                });
-
-                __.sendNotification({
-                    data: {
-                        status: NO_DRIVER_FOUND
-                    },
-                    token: ride.user.token
-                });
-                __.sendNotification({
-                    data: {
-                        status: NO_DRIVER_FOUND,
-                        rideId: rideId
-                    },
-                    token: ride.partner.token
-                });
-            }
-
             return res.send(err.response.status).send(err.response.data);
         }
 

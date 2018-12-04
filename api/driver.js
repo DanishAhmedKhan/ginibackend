@@ -9,6 +9,7 @@ const Driver = require('../schema/Driver');
 const User = require('../schema/User');
 const Partner = require('../schema/Partner');
 const rideStatus = require('./rideStatus');
+const Gini = require('../schema/Gini');
 
 const router = express.Router();
 
@@ -111,32 +112,63 @@ const nearestDriver = async (req, res) => {
         online: true,
         passenger: false,
         // rating: ...
-    }, '_id token');
+    }, '_id token phoneNumber');
 
     res.status(200).send(__.success(nearestDriver));
 };
 
-const requestNearestDriver = async (req, res) => {
+const bookUserDriver = async (req, res) => {
+    const ride = req.body.ride;
+
     let nearestDriver;
     try {
         const apiResponse = await axios.post('htttp://localhost:4000/api/driver/nearestDriver', {
-            lat: req.body.lat,
-            lng: req.body.lng
+            lat: ride.pickupLocation.lat,
+            lng: ride.pickupLocation.lng
         }); 
-        nearestDrive = apiResponse.data;
-        if (nearestDriver == null)
-            return res.status(404).send(__.error('Driver not found.'));
+        nearestDriver = apiResponse.data;
     } catch (err) {
         return res.status(err.response.status).send(err.response.data);
+    }
+
+    const { dispatch } = await Gini.findOne({}, 'dispatch');
+
+    if (nearestDriver == null && dispatch == 'auto') {
+        await User.updateOne({ _id: ride.user.id }, {
+            $set: { currentRide: null }
+        });
+        await Partner.updateOne({ _id: ride.partner.id }, {
+            $pull: { currentRides: { rideId: ride._id } }
+        });
+
+        __.sendNotification({
+            data: {
+                status: NO_DRIVER_FOUND
+            },
+            token: ride.user.token
+        });
+        __.sendNotification({
+            data: {
+                status: NO_DRIVER_FOUND,
+                rideId: rideId
+            },
+            token: ride.partner.token
+        });
+
+        return res.status(404).send(__.error('Driver not found.'));
     }
 
     __.sendNotification({
         data: {
             status: riseStatus.DRIVER_NOTIFIED,
-            lat:req.body.lat,
-            lng:req.body.lng,
+            lat: ride.pickupLocation.lat,
+            lng: ride.pickupLocation.lng,
         },
         token: nearestDriver.token
+    });
+
+    await Driver.updateOne({ _id: nearestDriver._id }, {
+        $push: { allRides: ride._id }
     });
 
     res.status(200).send(__.success('Request processed'));
@@ -146,20 +178,34 @@ const driverResponse = async (req, res) => {
     const error = __.validate(req.body, {
         response: Joi.number().integer().required(),
         drivername: Joi.string().required(),
+        driverToken: Joi.string().required(),
         driverPhoneNumber: Joi.string().required(),
         rideId: Joi.string().required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
     const response = req.body.response;
 
-    const ride = await rideRequest.findOneAndUpdate({ _id: req.body.rideId },
-        { $set: { status: response } }, { new: true });
+    const ride = await rideRequest.findOneAndUpdate({ _id: req.body.rideId }, {
+        $set: { 
+            status: response,
+            'driver.number': req.body.driverPhoneNumber
+        } 
+    });
 
     if (response == rideStatus.DRIVER_ACCEPTED) {
-        await Driver.update({ _id: driverId }, { 
+        await Driver.updateOne({ _id: driverId }, { 
             $set: {
                 passenger: true,
                 currentRide: req.body.rideId,
+            }
+        });
+        await Ride.updateOne({ _id: req.body.rideId }, {
+            $set: {
+                driver: {
+                    id: req.body.driverId,
+                    token: req.body.driverToken,
+                    number: req.body.driverPhoneNumber
+                }
             }
         });
         
@@ -180,19 +226,22 @@ const driverResponse = async (req, res) => {
             token: ride.user.token
         });
 
+        return res.status(200).send(__.success(ride.user.number));
+
     } else if (response == DRIVER_DECLINED) {
-        await Driver.update({ _id: driverId }, { 
+        await Driver.updateOne({ _id: driverId }, { 
             $inc: { 'stats.declined': 1 }
         });
 
-        try {
-            await axios.post('http://localhost:4000/api/driver/requestNearestDriver', {
-                lat: ride.pickupLocation.lat,
-                lng: ride.pickupLocation.lng
-            });
-        } catch (err) {
-            // notify admin
+        const { dispatch } = await Gini.findOne({}, 'dispatch');
 
+        try {
+            if (dispatch == 'auto' || dispatch == 'semi-auto') {
+                await axios.post('http://localhost:4000/api/driver/bookUserDriver', {
+                    ride: ride
+                });
+            }
+        } catch (err) {
             return res.status(err.response.status).send(err.response.data);
         }
     }
@@ -207,10 +256,12 @@ const driverResponse = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    const ride = await Ride.findOneAndUpdate({ _id: rideId }, { $set: {
-        customerCount: { driver: req.body.customerCount },
-        status: rideStatus.DRIVER_PICKUP
-    }});
+    const ride = await Ride.findOneAndUpdate({ _id: rideId }, { 
+        $set: {
+            customerCount: { driver: req.body.customerCount },
+            status: rideStatus.DRIVER_PICKUP
+        }
+    });
 
     const code = randomize('A', 6);
     const partnerId = ride.partner.id;
@@ -292,10 +343,11 @@ const driverResponse = async (req, res) => {
 router.post('/signup', signup);
 router.post('/login', login);
 router.post('/nearestDriver', nearestDriver);
-router.post('/requestNearestDriver', requestNearestDriver);
+router.post('/bookUserDriver', bookUserDriver);
 router.post('/location', location);
 router.post('/response', driverResponse);
 router.post('/pickup', pickup);
 router.post('/token', token);
+rouyer.post('/drop', drop);
 
 module.exports = router;

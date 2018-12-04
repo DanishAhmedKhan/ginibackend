@@ -81,26 +81,34 @@ const token = async (req, res) => {
 
 const rideRequest = async (req, res) => {
     const error = __.validate(req.body, {
-       partnerId: Joi.string().required(),
-       customerCount: Joi.number().integer().required(),
-       username: Joi.string().required(),
-       partnerToken: Joi.string().required(),
-       userToken: Joi.string().required(),
-       pickupLat: Joi.number().precision(8).required(),
-       pickupLng: Joi.number().precision(8).required()
+        partnerId: Joi.string().required(),
+        partnerNumber: Joi.string().required(),
+        partnerToken: Joi.string().required(),    
+        username: Joi.string().required(),
+        userNumber: Joi.string().required(),
+        userToken: Joi.string().required(),
+        customerCount: Joi.number().integer().required(),
+        pickupLat: Joi.number().precision(8).required(),
+        pickupLng: Joi.number().precision(8).required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const { currentRide } = await User.findOne({ _id: req.body.userId }, 'currentRide');
+    if (currentRide != null) 
+        res.status(200).send(__.success('Already in a ride'));
 
     const rideId = mongoose.Types.ObjectId();
     const ride = {
         _id: rideId,
         user: {
             id: req.body.userId,
-            token: req.body.userToken  
+            token: req.body.userToken,
+            number: req.body.userNumber,
         },
         partner: {
             id: req.body.partnerId,
-            token: req.body.partnerToken
+            token: req.body.partnerToken,
+            number: req.body.partnerNumber,
         },
         customerCount: {
             user: req.body.customerCount
@@ -117,8 +125,11 @@ const rideRequest = async (req, res) => {
     await User.updateOne({ _id: userId }, {
         $set: { currentRide: rideId }
     });
+    await Partner.updateOne({ _id: partnerId }, {
+        $push: { allRides: rideId  }
+    });
 
-    const message = {
+    __.sendNotification({
         data: {
             status: rideStatus.PARTNER_NOTIFIED,
             username: req.body.username,
@@ -126,14 +137,7 @@ const rideRequest = async (req, res) => {
             rideId: rideId
         },
         token: req.body.partnerToken
-    };
-
-    admin.messaging().send(message)
-        .then(response => {
-            console.log(response); 
-        }).catch(error => {
-            console.log(error);
-        });
+    });
 
     res.status(200).send(__.success('Notification send to partner. Wait for the response.'));
 };
