@@ -5,7 +5,7 @@ const __ = require('./apiUtil');
 const GiniSystem = require('../schema/Gini');
 
 const router = express.Router();
-const GINI_SYSTEM_ID = config.get('gini_system_id');
+const GINI_SYSTEM_ID = config.get('giniSystemId');
 
 const initialize = async (req, res) => {
     const giniSystem = new GiniSystem({

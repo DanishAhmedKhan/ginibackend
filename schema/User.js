@@ -22,9 +22,12 @@ const userSchema = new Schema({
     },
     password: {
         type: String,
-        require: true, 
+        required: true, 
         max: 1024,
         min: 5
+    },
+    username: {
+        type: String
     },
     phoneNumber: {
         type: String
@@ -39,8 +42,10 @@ const userSchema = new Schema({
         type: Boolean
     },
     favouritePickupLocations: [{
-        tag: String, 
-        address: String
+        label: String, 
+        address: String,
+        lat: Number, 
+        lng: Number
     }],
     currentRide: {
         type: ObjectId,

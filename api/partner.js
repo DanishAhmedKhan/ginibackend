@@ -6,8 +6,12 @@ const __ = require('./apiUtil');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const Partner = require('../schema/Partner');
+const Ride = require('../schema/Ride');
+const Driver = require('../schema/Driver');
+const User = require('../schema/User');
 const rideStatus = require('./rideStatus');
 const Gini = require('../schema/Gini');
+const auth = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -54,12 +58,14 @@ const login = async (req, res) => {
     if (error) return res.status(400).send(error.details[0].message);
 
     const partner = await Partner.findOne({ email: req.body.email });
-    if (!partner) return res.status(400).find('Invalid email or password');
+    if (!partner) return res.status(400).send('Invalid email or password');
 
     const validPassword = await bcrypt.compare(req.body.password, partner.password);
     if (!validPassword) return res.status(400).send('Invalid email or password');
 
-    Partner.update({ _id: req.body.pertnerId }, { $set: { token: req.body.token } });
+    await Partner.updateOne({ _id: partner._id }, 
+        { $set: { token: req.body.token } 
+    });
 
     const token = partner.generateAuthToken();
     res.header('x-partner-auth-token', token)
@@ -69,8 +75,8 @@ const login = async (req, res) => {
 
 const getAllPartners = async (req, res) => {
     const partners = await Partner.find({});
-
-    res.status(200).send(partners);
+    //console.log(partners);
+    res.status(200).send(__.success(partners));
 };
 
 const deleteAllPartners = async (req, res) => {
@@ -80,7 +86,7 @@ const deleteAllPartners = async (req, res) => {
 };
 
 const nearestPartner = async (req, res) => {
-    const error = __.validate(req,body, {
+    const error = __.validate(req.body, {
         lat: Joi.number().precision(8).required(),
         lng: Joi.number().precision(8).required()
     });
@@ -96,14 +102,19 @@ const nearestPartner = async (req, res) => {
                 $maxDistance: 10000 //in meters
             }
         }
-    });
+    }, '_id name address');
 
     res.status(200).send(__.success(partners));
 };
 
 const partnerDetail = async (req, res) => {
-    const partnerDetails = await Partner.find({ _id: partnerId },
-        '_id name type token email address open'    
+    const error = __.validate(req.body, {
+        partnerId: Joi.string().required()
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const partnerDetails = await Partner.findOne({ _id: req.body.partnerId },
+        '_id name type token email address open phoneNumber rating'    
     );
 
     res.status(200).send(__.success(partnerDetails));
@@ -131,14 +142,15 @@ const partnerResponse = async (req, res) => {
 
     const rideId = req.body.rideId;
     const response = req.body.response;
-    const ride = await Ride.findOneAndUpdate({ _id: rideId },
-        { $set: { status: response } }, { new: true });
+    const ride = await Ride.findOneAndUpdate({ _id: rideId }, { 
+        $set: { status: response } 
+    });
 
-    const { dispatch } = await Gini.findOne({}, 'dispatch');
+    const  { dispatch }  = await Gini.findOne({}, 'dispatch');
 
     if (response == rideStatus.PARTNER_CONFIRMED) {
         try {
-            await Partner.updateOne({ _id: partnerId }, {
+            await Partner.updateOne({ _id: req.body.partnerId }, {
                 $push: { currentRides: { rideId: rideId } }
             });
 
@@ -148,6 +160,7 @@ const partnerResponse = async (req, res) => {
                 });
             } 
         } catch (err) {
+            console.log(err);
             return res.send(err.response.status).send(err.response.data);
         }
 
@@ -161,7 +174,7 @@ const partnerResponse = async (req, res) => {
 
         __.sendNotification({
             date: {
-                status: PARTNER_DECLINED,
+                status: '123',
             },
             token: ride.user.token
         });
@@ -206,14 +219,14 @@ const scanCode = async (req, res) => {
 
 router.post('/signup', signup);
 router.post('/login', login);
-router.get('/getAllPartners', getAllPartners);
-router.post('/findNearestPartner', nearestPartner);
+router.post('/getAllPartners', getAllPartners);
+router.post('/findNearestPartner', auth, nearestPartner);
 router.post('/partnerList', nearestPartner);
 router.delete('/deleteAllPartners', deleteAllPartners);
 router.post('/isPartnerOpen', isPartnerOpen);
 router.post('/partner', partner);
-router.post('/response', partnerResponse);
+router.post('/response', auth, partnerResponse);
 router.post('/token', token);
-router.post('/partnerDetail', partnerDetail);
+router.post('/partnerDetail', auth, partnerDetail);
 
 module.exports = router;

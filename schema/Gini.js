@@ -8,6 +8,9 @@ const ObjectId = mongoose.ObjectId;
 // dispatch : manual - every ride is notified to admin to find a driver
 
 const giniSystemSchema = new Schema({
+    _id: {
+        type: String
+    },
     dispatch: {
         type: String, 
         enum: [ 'auto', 'manual', 'semi-auto' ],

@@ -6,7 +6,7 @@ const Schema = mongoose.Schema;
 const ObjectId = Schema.ObjectId;
 
 const driverSchema = new Schema({
-    token: {
+    name: {
         type: String
     },
     email: {
@@ -17,6 +17,9 @@ const driverSchema = new Schema({
     },
     phoneNumber: {
         type: String
+    },
+    car: {
+        type: ObjectId,
     },
     token: {
         type: String
@@ -36,7 +39,8 @@ const driverSchema = new Schema({
     geolocation: {
         type: {
             type: String,
-            enum: [ 'Point' ]
+            enum: [ 'Point' ],
+            default: 'Point'
         },
         coordinates: {
             type: [Number]

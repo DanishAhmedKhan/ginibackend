@@ -15,7 +15,8 @@ const partnerSchema = new Schema({
         lowercase: true
     },
     token: {
-        type: String
+        type: String,
+        default: null
     },
     email: {
         type: String, 
@@ -24,12 +25,19 @@ const partnerSchema = new Schema({
     password: {
         type: String
     },
+    phoneNumber: {
+        type: String,
+    },
     address: {
-        line1: String, 
-        line2: String, 
+        line: String, 
         state: String, 
         city: String, 
         zip: String
+    },
+    rating: {
+        gini: Number,
+        google: Number,
+        zomato: Number,
     },
     notification: [{
         id: String,

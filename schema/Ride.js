@@ -42,6 +42,7 @@ const rideSchema = new Schema({
         type: String
     },
     pickupLocation: {
+        address: String,
         lat: Number, 
         lng: Number
     },

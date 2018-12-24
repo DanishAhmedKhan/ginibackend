@@ -4,12 +4,15 @@ const _ = require('lodash');
 const __ = require('./apiUtil');
 const admin = require('firebase-admin');
 const axios = require('axios');
+const bcrypt = require('bcrypt');
 const randomize = require('randomatic');
 const Driver = require('../schema/Driver');
-const User = require('../schema/User');
+const Ride = require('../schema/Ride');
 const Partner = require('../schema/Partner');
+const User = require('../schema/User');
 const rideStatus = require('./rideStatus');
 const Gini = require('../schema/Gini');
+const auth = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -43,25 +46,30 @@ const signup = async (req, res) => {
 };
 
 const login = async (req, res) => {
-    const schema = Joi.object().keys({
+    const error = __.validate(req.body, {
         email: Joi.string().required().min(5).max(255).email(),
-        password: Jopi.string().required().min(5).max(255)
+        password: Joi.string().required().min(5).max(255),
+        token: Joi.string().required(),
     });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    const { error } = Joi.validate(schema, req.body);
-    if (error) return res.status(400).send(error.details[0].message);
+    const driver = await Driver.findOne({ email: req.body.email });
+    if (!driver) return res.status(400).send('Invalid email or password');
 
-    const driver = await Driver({ email: req.body.email });
-    if (driver) return res.status(400).send('Invalid email or password');
-
-    const validPassword = await bcrypt.compare(driver.password, req.body.password);
+    const validPassword = await bcrypt.compare(req.body.password, driver.password);
     if (!validPassword) return res.status(400).send('Invalid email or password');
 
+    await Driver.updateOne({ _id: driver._id }, { 
+        $set: { 
+            token: req.body.token,
+            online: true 
+        } 
+    });
+
     const token = driver.generateAuthToken();
-    res.header('x-gini-agent', 'driver')
-       .header('x-auth-token', token)
+    res.header('x-driver-auth-token', token)
        .status(200)
-       .send('Logged in.');
+       .send(__.success('Logged in.'));
 };
 
 const online = async (req, res) => {
@@ -75,21 +83,23 @@ const online = async (req, res) => {
 };
 
 const logout = async (req, res) => {
-    
+
 };
 
 const location = async (req, res) => {
+    console.log(req.body);
     const error = __.validate(req.body, {
         lat: Joi.number().precision(8).required(),
         lng: Joi.number().precision(8).required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    await Driver.update({ _id: driverId }, { 
-        $set: { 'geolocation.coordinates': [ req.body.lng, req.body.lat ] }
+    await Driver.updateOne({ _id: req.body.driverId }, { 
+        $set: { 'geolocation.coordinates': [ req.body.lng, req.body.lat ],
+            'geolocation.type': 'Point' }
     });
 
-    res.status(200).send(_.seccess('Location updated.'));
+    res.status(200).send(__.seccess('Location updated.'));
 };
 
 const nearestDriver = async (req, res) => {
@@ -97,7 +107,9 @@ const nearestDriver = async (req, res) => {
         lat: Joi.number().precision(8).min(-90).max(90).required(),
         lng: Joi.number().precision(8).min(-180).max(180).required()
     });
-    if (error) res.status(400).send(__.error(error.details[0].message));
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+    console.log("Lat = " + req.body.lat);
+    console.log("Lng = " + req.body.lng);
 
     const nearestDriver = await Driver.findOne({
         geolocation: {
@@ -105,14 +117,16 @@ const nearestDriver = async (req, res) => {
                 $geometry: {
                     type: 'Point',
                     coordinates: [ req.body.lng, req.body.lat ]
-                }
+                },
+                $maxDistance: 10000 //in meters
             },
-            $maxDistance: 10000 //in meters
         },
-        online: true,
-        passenger: false,
+        //online: true,
+        //passenger: false,
         // rating: ...
     }, '_id token phoneNumber');
+
+    console.log(nearestDriver);
 
     res.status(200).send(__.success(nearestDriver));
 };
@@ -126,7 +140,7 @@ const bookUserDriver = async (req, res) => {
             lat: ride.pickupLocation.lat,
             lng: ride.pickupLocation.lng
         }); 
-        nearestDriver = apiResponse.data;
+        nearestDriver = apiResponse.data.data;
     } catch (err) {
         return res.status(err.response.status).send(err.response.data);
     }
@@ -143,13 +157,13 @@ const bookUserDriver = async (req, res) => {
 
         __.sendNotification({
             data: {
-                status: NO_DRIVER_FOUND
+                status: rideStatus.DRIVER_DECLINED
             },
             token: ride.user.token
         });
         __.sendNotification({
             data: {
-                status: NO_DRIVER_FOUND,
+                status: rideStatus.DRIVER_DECLINED,
                 rideId: rideId
             },
             token: ride.partner.token
@@ -160,9 +174,10 @@ const bookUserDriver = async (req, res) => {
 
     __.sendNotification({
         data: {
-            status: riseStatus.DRIVER_NOTIFIED,
-            lat: ride.pickupLocation.lat,
-            lng: ride.pickupLocation.lng,
+            status: '193',
+            lat: ride.pickupLocation.lat + '',
+            lng: ride.pickupLocation.lng + '',
+            rideId: ride._id,
         },
         token: nearestDriver.token
     });
@@ -177,23 +192,26 @@ const bookUserDriver = async (req, res) => {
 const driverResponse = async (req, res) => {
     const error = __.validate(req.body, {
         response: Joi.number().integer().required(),
-        drivername: Joi.string().required(),
-        driverToken: Joi.string().required(),
-        driverPhoneNumber: Joi.string().required(),
+        //drivername: Joi.string().required(),
+        //driverToken: Joi.string().required(),
+        //driverPhoneNumber: Joi.string().required(),
         rideId: Joi.string().required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
     const response = req.body.response;
 
-    const ride = await rideRequest.findOneAndUpdate({ _id: req.body.rideId }, {
+    const driver = await Driver.findOne({ _id: req.body.driverId },
+         'name token phoneNumber');
+
+    const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
         $set: { 
             status: response,
-            'driver.number': req.body.driverPhoneNumber
+            'driver.number': driver.phoneNumber
         } 
     });
 
-    if (response == rideStatus.DRIVER_ACCEPTED) {
-        await Driver.updateOne({ _id: driverId }, { 
+    if (response == rideStatus.DRIVER_CONFIRMED) {
+        await Driver.updateOne({ _id: req.body.driverId }, { 
             $set: {
                 passenger: true,
                 currentRide: req.body.rideId,
@@ -203,32 +221,32 @@ const driverResponse = async (req, res) => {
             $set: {
                 driver: {
                     id: req.body.driverId,
-                    token: req.body.driverToken,
-                    number: req.body.driverPhoneNumber
+                    token: driver.driverToken,
+                    number: driver.phoneNumber
                 }
             }
         });
         
         __.sendNotification({
             data: {
-                status: DRIVER_BOOKED,
-                rideId: rideId
+                status: '150',
+                rideId: req.body.rideId
             },
             token: ride.partner.token
         });
 
         __.sendNotification({
             data: {
-                status: BOOKING_CONFIRMED,
-                name: req.body.driverName,
-                phoneNumber: req.body.driverPhoneNumber,
+                status: '177',
+                name: driver.name + '',
+                phoneNumber: driver.phoneNumber + '',
             },
             token: ride.user.token
         });
 
         return res.status(200).send(__.success(ride.user.number));
 
-    } else if (response == DRIVER_DECLINED) {
+    } else if (response == rideStatus.DRIVER_DECLINED) {
         await Driver.updateOne({ _id: driverId }, { 
             $inc: { 'stats.declined': 1 }
         });
@@ -345,9 +363,9 @@ router.post('/login', login);
 router.post('/nearestDriver', nearestDriver);
 router.post('/bookUserDriver', bookUserDriver);
 router.post('/location', location);
-router.post('/response', driverResponse);
+router.post('/response', auth, driverResponse);
 router.post('/pickup', pickup);
 router.post('/token', token);
-rouyer.post('/drop', drop);
+router.post('/drop', drop);
 
 module.exports = router;

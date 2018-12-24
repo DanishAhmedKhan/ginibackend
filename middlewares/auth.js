@@ -9,7 +9,7 @@ const auth = function (req, res, next) {
     try {
         const privateKey = config.get(agent + 'AuthToken');
         const decoded = jwt.verify(token, privateKey);
-        if (_id in decoded) req.body[agent + 'Id'] = decoded._id;
+        if ('_id' in decoded) req.body[agent + 'Id'] = decoded._id;
         req[agent] = decoded;
         next();
     } catch (e) {

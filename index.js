@@ -39,12 +39,14 @@ const userApi = require('./api/user');
 const driverApi = require('./api/driver');
 const partnerApi = require('./api/partner');
 const adminApi = require('./api/admin');
+const giniSystem = require('./api/giniSystem');
 const playground = require('./playground/play');
 
 app.use('/api/user', userApi);
 app.use('/api/driver', driverApi);
 app.use('/api/partner', partnerApi);
 app.use('/api/admin', adminApi);
+app.use('/system', giniSystem);
 app.use('/playground', playground);
 
 const dbName = config.get('db.name');
