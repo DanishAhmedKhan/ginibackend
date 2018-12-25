@@ -8,20 +8,11 @@ const cors = require('cors');
 
 const app = express();
 
-// if (!config.get('userWebToken')) {
-    // console.log('FATAL ERROR!');
-    // process.exit(1);
-// }
-
-
-// Firebase Admin initialization
 var serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
-//middlewares
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -49,9 +40,9 @@ app.use('/api/admin', adminApi);
 app.use('/system', giniSystem);
 app.use('/playground', playground);
 
-const dbName = config.get('db.name');
-console.log(dbName);
-mongoose.connect('mongodb://localhost/' + dbName)
+const dbUrl = config.get('db');
+console.log(dbUrl);
+mongoose.connect(dbUrl)
     .then(() => console.log('Connected to mongodb.'))
     .catch(err => console.log('Could not connect to mongodb.', err));
 

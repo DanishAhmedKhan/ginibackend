@@ -1,6 +1,4 @@
 {
     "name": "Gini Development",
-    "db": {
-        "name": "gini_dev"
-    }
+    "db": "mongodb://localhost/gini_dev"
 }

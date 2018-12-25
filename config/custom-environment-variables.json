@@ -3,5 +3,6 @@
     "userAuthToken": "gini_user_jsonAuthToken",
     "driverAuthToken": "gini_driver_jsonAuthToken",
     "partnerAuthToken": "gini_driver_jsonAuthToken",
-    "giniSystemId": "gini_system_id"
+    "giniSystemId": "gini_system_id",
+    "db": "gini_db"
 }
