@@ -285,6 +285,8 @@ router.post('/initPartnerData', async (req, res) => {
     });
     await partner2.save();
 
+    res.status(200).send('Added the partner data to databse.');
+
 });
 
 module.exports = router;
