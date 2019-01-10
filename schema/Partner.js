@@ -39,6 +39,10 @@ const partnerSchema = new Schema({
         google: Number,
         zomato: Number,
     },
+    url: {
+        menu: String, 
+        website: String
+    },
     notification: [{
         id: String,
         code: Number, 
@@ -46,6 +50,13 @@ const partnerSchema = new Schema({
             user: String, 
             userCount: Number
         }
+    }],
+    reviews: [{
+        by: {
+            type: ObjectId
+        },
+        text: String,
+        rating: Number
     }],
     currentRides: [{
         _id: false,

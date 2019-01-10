@@ -102,7 +102,7 @@ const nearestPartner = async (req, res) => {
                 $maxDistance: 10000 //in meters
             }
         }
-    }, '_id name address');
+    }, '_id name address rating');
 
     res.status(200).send(__.success(partners));
 };
@@ -114,7 +114,7 @@ const partnerDetail = async (req, res) => {
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const partnerDetails = await Partner.findOne({ _id: req.body.partnerId },
-        '_id name type token email address open phoneNumber rating'    
+        '_id name type token email address open phoneNumber rating url'    
     );
 
     res.status(200).send(__.success(partnerDetails));
@@ -165,7 +165,7 @@ const partnerResponse = async (req, res) => {
         }
 
     } else if (response == rideStatus.PARTNER_DECLINED) {
-        await Partner.updateOne({ _id: partnerId }, {
+        await Partner.updateOne({ _id: req.body.partnerId }, {
             $pull: { currentRides: { rideId: rideId } }
         });
         await User.updateOne({ _id: ride.user.id }, {
@@ -173,7 +173,7 @@ const partnerResponse = async (req, res) => {
         });
 
         __.sendNotification({
-            date: {
+            data: {
                 status: '123',
             },
             token: ride.user.token

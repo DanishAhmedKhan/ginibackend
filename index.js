@@ -32,7 +32,7 @@ const partnerApi = require('./api/partner');
 const adminApi = require('./api/admin');
 const giniSystem = require('./api/giniSystem');
 const playground = require('./playground/play');
-
+  
 app.use('/api/user', userApi);
 app.use('/api/driver', driverApi);
 app.use('/api/partner', partnerApi);

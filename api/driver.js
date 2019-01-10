@@ -10,6 +10,7 @@ const Driver = require('../schema/Driver');
 const Ride = require('../schema/Ride');
 const Partner = require('../schema/Partner');
 const User = require('../schema/User');
+const Car = require('../schema/Car');
 const rideStatus = require('./rideStatus');
 const Gini = require('../schema/Gini');
 const auth = require('../middlewares/auth');
@@ -72,22 +73,11 @@ const login = async (req, res) => {
        .send(__.success('Logged in.'));
 };
 
-const online = async (req, res) => {
-    const error = __.validate(req.body, {
-        online: Joi.boolean().required()
-    });
-    if (error) return res.status(400).send(__.error(error.details[0].message));
-
-    await Driver.update({ _id: req.body.driverId }, { $set: { online: req.body.online } });
-    res.status(200).send(__.success('Online value set'));
-};
-
 const logout = async (req, res) => {
 
 };
 
 const location = async (req, res) => {
-    console.log(req.body);
     const error = __.validate(req.body, {
         lat: Joi.number().precision(8).required(),
         lng: Joi.number().precision(8).required(),
@@ -95,11 +85,13 @@ const location = async (req, res) => {
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
     await Driver.updateOne({ _id: req.body.driverId }, { 
-        $set: { 'geolocation.coordinates': [ req.body.lng, req.body.lat ],
-            'geolocation.type': 'Point' }
+        $set: { 
+            'geolocation.coordinates': [ req.body.lng, req.body.lat ],
+            'geolocation.type': 'Point' 
+        }
     });
 
-    res.status(200).send(__.seccess('Location updated.'));
+    res.status(200).send(__.success('Location updated.'));
 };
 
 const nearestDriver = async (req, res) => {
@@ -201,7 +193,8 @@ const driverResponse = async (req, res) => {
     const response = req.body.response;
 
     const driver = await Driver.findOne({ _id: req.body.driverId },
-         'name token phoneNumber');
+         'name token phoneNumber car');
+    const car = await Car.findOne({ _id: driver.car });
 
     const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
         $set: { 
@@ -240,6 +233,8 @@ const driverResponse = async (req, res) => {
                 status: '177',
                 name: driver.name + '',
                 phoneNumber: driver.phoneNumber + '',
+                brand: car.brand,
+                pn: car.plateNumber,
             },
             token: ride.user.token
         });
@@ -274,7 +269,7 @@ const driverResponse = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    const ride = await Ride.findOneAndUpdate({ _id: rideId }, { 
+    const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, { 
         $set: {
             customerCount: { driver: req.body.customerCount },
             status: rideStatus.DRIVER_PICKUP
@@ -282,27 +277,22 @@ const driverResponse = async (req, res) => {
     });
 
     const code = randomize('A', 6);
+    console.log(code);
     const partnerId = ride.partner.id;
     await Partner.updateOne({ _id: partnerId, 'currentRides.rideId': req.body.rideId }, {
         $push: { 'currentRides.$.code': code }
     });
-    await Ride.updateOne({ _id: rideId }, {
+    await Ride.updateOne({ _id: req.body.rideId }, {
         $set: { code: code }
     });
 
-    const message = {
+    __.sendNotification({
         data: {
+            status: '225',
             code: code
         },
         token: ride.user.token
-    }
-
-    admin.messaging().send(message)
-        .then(response => {
-            console.log(response);
-        }).catch(error => {
-            console.log(error);
-        });
+    });
 
     res.status(200).send(__.success('Updated.'));
  };
@@ -328,19 +318,20 @@ const driverResponse = async (req, res) => {
         $set: { currentRide: null }
     });
 
-    const message = {
+    __.sendNotification({
         data: {
-
+            status: '356',
+            rideId: req.body.rideId,
         },
         token: ride.partner.token
-    };
+    });
 
-    admin.messaging().send(message)
-        .then(response => {
-            console.log(response);
-        }).catch(error => {
-            console.log(error);
-        });
+    __.sendNotification({
+        data: {
+            status: '705'
+        },
+        token: ride.user.token
+    });
 
     res.status(200).send(__.success('Updated.'));
  }
@@ -358,14 +349,60 @@ const driverResponse = async (req, res) => {
     res.status(200).send(__.success('Token updated.'));
  }
 
+ const online = async (req, res) => {
+    const error = __.validate(req.body, {
+        online: Joi.boolean().required()
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    await Driver.updateOne({ _id: req.body.driverId }, {
+        $set: { 'status.online': req.body.online }
+    });
+
+    res.status(200).send(__.success('Online updated'));
+ };
+
 router.post('/signup', signup);
 router.post('/login', login);
 router.post('/nearestDriver', nearestDriver);
 router.post('/bookUserDriver', bookUserDriver);
-router.post('/location', location);
+router.post('/location', auth, location);
 router.post('/response', auth, driverResponse);
-router.post('/pickup', pickup);
+router.post('/pickup', auth, pickup);
 router.post('/token', token);
-router.post('/drop', drop);
+router.post('/drop', auth, drop);
+router.post('/online', auth, online);
+
+router.post('/initCar', async (req, res) => {
+    var car1 = new Car({
+        brand: 'Toyota',
+        model: 'L3',
+        capacity: 4,
+        plateNumber: 'WB-5491',
+    });
+
+    await car1.save();
+
+    var car2 = new Car({
+        brand: 'Maruti Suzuki',
+        model: 'volvo',
+        capacity: 4,
+        plateNumber: 'WB-8278',
+    });
+
+    await car2.save();
+
+    res.status(200).send('Inserted cars');
+});
+
+router.post('/setcartodriver', async (req, res) => {
+    const car = await Car.findOne({});
+
+    const driver = await Driver.findOneAndUpdate({ _id: '5c13d83bcaaa672a4cbf67a4' }, {
+        $set : { car : car._id }
+    });
+
+    res.status(200).send('Updated succeddfully');
+});
 
 module.exports = router;

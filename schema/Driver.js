@@ -10,7 +10,7 @@ const driverSchema = new Schema({
         type: String
     },
     email: {
-        tyoe: String
+        type: String
     },
     password: {
         type: String

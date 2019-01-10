@@ -144,6 +144,7 @@ const rideRequest = async (req, res) => {
         $push: { allRides: rideId  }
     });
 
+    console.log("Partner tokrn :: ", partner.token);
     __.sendNotification({
         data: {
             status: '101',
