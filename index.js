@@ -49,7 +49,7 @@ mongoose.connect(dbUrl)
     .then(() => console.log('Connected to mongodb.'))
     .catch(err => console.log('Could not connect to mongodb.', err));
 
-const port = config.get('server.port');
+const port = process.env.PORT || config.get('server.port');
 app.listen(port, () => {
     console.log(`Listining to port ${port}`);
 });
