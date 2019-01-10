@@ -229,4 +229,62 @@ router.post('/response', auth, partnerResponse);
 router.post('/token', token);
 router.post('/partnerDetail', auth, partnerDetail);
 
+router.post('/initPartnerData', async (req, res) => {
+
+    var partner1 = new Partner({
+        geolocation: {
+            coordinates: [ 88.3457046, 22.55886 ],
+            type: 'Point'
+        },
+        name: 'Dominos',
+        email: 'dominos@gmail.com',
+        password: '$2b$10$Bb2RNPtizVmT6/9tl4mVjOLpUo8FevAc0bFDRNnt3ZqLsc0rS387O',
+        token: '',
+        address: {
+            line: 'New Market, Janbazar , Taltala',
+            state: 'West Bengal',
+            city: 'Kolkata',
+            zip: '700018'
+        },
+        rating: {
+            gini: 4.5,
+        },
+        phoneNumber: '',
+        url: {
+            menu: 'www.dominos.in/menu',
+            website: 'www.dominos.com',
+        },
+        open: true,
+    });
+    await partner1.save();
+
+    var partner2 = new Partner({
+        geolocation: {
+            coordinates: [ 88.35857, 22.558925 ],
+            type: 'Point'
+        },
+        name: 'Pizza Hut',
+        email: 'pizzahut@gmail.com',
+        password: '"$2b$10$5EeWo3XLjvC4pMaQITqYYOVu3K5W50imOpRftOHlSsWbLQTZU/YVe',
+        token: '',
+        address: {
+            line: 'Salt Lake',
+            state: 'West Bengal',
+            city: 'Kolkata',
+            zip: '700016'
+        },
+        rating: {
+            gini: 4.3,
+        },
+        phoneNumber: '',
+        url: {
+            menu: 'www.pizzahut.in/menu',
+            website: 'www.pizzahut.com',
+        },
+        open: true,
+    });
+    await partner2.save();
+
+});
+
 module.exports = router;
