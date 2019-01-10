@@ -9,6 +9,8 @@ const cors = require('cors');
 
 const app = express();
 
+console.log("Trying to start gini server...");
+
 var serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
