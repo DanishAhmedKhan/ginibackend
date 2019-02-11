@@ -63,8 +63,12 @@ const login = async (req, res) => {
     const validPassword = await bcrypt.compare(req.body.password, partner.password);
     if (!validPassword) return res.status(400).send('Invalid email or password');
 
-    await Partner.updateOne({ _id: partner._id }, 
-        { $set: { token: req.body.token } 
+    await Partner.updateOne({ _id: partner._id }, {
+        $set: { 
+            token: req.body.token,
+            online: true,
+            open: true,
+        } 
     });
 
     const token = partner.generateAuthToken();
@@ -72,6 +76,19 @@ const login = async (req, res) => {
        .status(200)
        .send(__.success('Loged in.'));
 };
+
+const logout = async (req, res) => {
+    await Partner.updateOne({ _id: req.body.partnerId }, {
+        $set: {
+            online: false,
+            open: false,
+        }
+    });
+
+    res.status(200).send(__.success('Logged out'));
+
+    greyList(req.body.partnerId);
+}
 
 const getAllPartners = async (req, res) => {
     const partners = await Partner.find({});
@@ -86,6 +103,7 @@ const deleteAllPartners = async (req, res) => {
 };
 
 const nearestPartner = async (req, res) => {
+    console.log("(" + req.body.lat + ", " + req.body.lng + ")");
     const error = __.validate(req.body, {
         lat: Joi.number().precision(8).required(),
         lng: Joi.number().precision(8).required()
@@ -161,7 +179,7 @@ const partnerResponse = async (req, res) => {
             } 
         } catch (err) {
             console.log(err);
-            return res.send(err.response.status).send(err.response.data);
+            return res.status(err.response.status).send(err.response.data);
         }
 
     } else if (response == rideStatus.PARTNER_DECLINED) {
@@ -183,6 +201,21 @@ const partnerResponse = async (req, res) => {
     res.status(200).send(__.success('Processed data'));
 };
 
+const online = async (req, res) => {
+    const error = __.validate(req.body, {
+        online: Joi.boolean().required()
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    await Partner.updateOne({ _id: req.body.partnerId }, {
+        $set: {
+            onlien: req.body.online
+        }
+    });
+    
+    res.status(200).send(__.success('Online updated'));
+}
+
 const token = async (req, res) => {
     const error = __.validate(req.body, {
         token: Joi.string().required()
@@ -194,31 +227,70 @@ const token = async (req, res) => {
     });
 
     res.status(200).send(__.success('Token updated.'));
- }
+}
 
 const scanCode = async (req, res) => {
     const error = __.validate(req.body, {
         code: Joi.string().required()
     });
-    if (error) return res.status(200).send(__.error(error.details[0].message));
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const code = req.body.code;
-    const result = await Partner.updateOne({ _id: partnerId }, {
+
+    const partner = await Partner.findOneAndUpdate({ _id: req.body.partnerId }, {
         $pull: { currentRides: { code: code } }
     });
 
-    const modified = result.nModified == 1;
-    if (modified) {
-        await Ride.updateOne({ _id: id }, {
-            $set: { status: rideStatus.SCAN_CONFIRMED }
+    var array = partner.currentRides;
+    var currentRide = array.filter(x => x.code == req.body.code);
+    //console.log(currentRide);
+    
+    if (currentRide.length != 0) {
+        var rideId = currentRide[0].rideId;
+        //console.log('RIDE ID  = ', rideId);
+
+        await Ride.updateOne({ _id: rideId }, {
+            $set: { 
+                status: rideStatus.SCAN_CONFIRMED,
+                timing: { confirmed: new Date() },
+            }
+        });
+
+        const ride = await Ride.findOne({ _id: rideId });
+
+        __.sendNotification({
+            data: {
+                status: '829'
+            }, 
+            token: ride.user.token
+        });
+
+        res.status(200).send(__.success(rideId));
+    } else {
+        res.status(200).send(__.success(''));
+    }
+ };
+
+const greyList = async (partnerId) => {
+    const { currentRides } = await Partner.findOne({ _id: partnerId }, 'currentRides');
+    console.log("CURRENT RIDES = ", currentRides);
+
+    if (currentRides == null || currentRides == []) return;
+
+    for (var i = 0; i < currentRides.length; i++) {
+        const { user } = await Ride.findOne({ _id: currentRides[i].rideId }, 'user');
+        __.sendNotification({
+            data: {
+                status: '997'
+            },
+            token: user.token
         });
     }
-
-    res.status(200).send(__.success(modified));
- }
+};
 
 router.post('/signup', signup);
 router.post('/login', login);
+router.post('/logout', auth, logout);
 router.post('/getAllPartners', getAllPartners);
 router.post('/findNearestPartner', auth, nearestPartner);
 router.post('/partnerList', nearestPartner);
@@ -227,7 +299,10 @@ router.post('/isPartnerOpen', isPartnerOpen);
 router.post('/partner', partner);
 router.post('/response', auth, partnerResponse);
 router.post('/token', token);
+router.post('/online', auth, online);
 router.post('/partnerDetail', auth, partnerDetail);
+router.post('/scanCode', auth, scanCode);
+//router.post('/greyList', greyList);
 
 router.post('/initPartnerData', async (req, res) => {
 

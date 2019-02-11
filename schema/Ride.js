@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-const config = require('config');
-const jwt = require('jsonwebtoken');
 
 const Schema = mongoose.Schema;
 const ObjectId = Schema.ObjectId;
@@ -42,8 +40,23 @@ const rideSchema = new Schema({
         type: String
     },
     pickupLocation: {
-        address: String,
+        address: {
+            line: String,
+            state: String, 
+            city: String, 
+            zip : String
+        },
         lat: Number, 
+        lng: Number
+    },
+    dropLocation: {
+        address: {
+            line: String, 
+            state: String, 
+            city: String, 
+            zip: String
+        }, 
+        lat: Number,
         lng: Number
     },
     status: {

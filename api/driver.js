@@ -2,7 +2,6 @@ const express = require('express');
 const Joi = require('joi');
 const _ = require('lodash');
 const __ = require('./apiUtil');
-const admin = require('firebase-admin');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
 const randomize = require('randomatic');
@@ -63,7 +62,11 @@ const login = async (req, res) => {
     await Driver.updateOne({ _id: driver._id }, { 
         $set: { 
             token: req.body.token,
-            online: true 
+            'status.online': true,
+            shifts: {
+                time: new Date(),
+                method: 'login'
+            }
         } 
     });
 
@@ -74,7 +77,17 @@ const login = async (req, res) => {
 };
 
 const logout = async (req, res) => {
+    await Driver.updateOne({ _id: driver._id }, {
+        $set: {
+            'status.online': false,
+            shifts: {
+                time: new Date(),
+                method: 'logout'
+            }
+        }
+    });
 
+    res.status(200).send(__.success('Logged out'));
 };
 
 const location = async (req, res) => {
@@ -100,8 +113,8 @@ const nearestDriver = async (req, res) => {
         lng: Joi.number().precision(8).min(-180).max(180).required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
-    console.log("Lat = " + req.body.lat);
-    console.log("Lng = " + req.body.lng);
+    //console.log("Lat = " + req.body.lat);
+    //console.log("Lng = " + req.body.lng);
 
     const nearestDriver = await Driver.findOne({
         geolocation: {
@@ -113,12 +126,12 @@ const nearestDriver = async (req, res) => {
                 $maxDistance: 10000 //in meters
             },
         },
-        //online: true,
+        'status.online': true,
         //passenger: false,
         // rating: ...
     }, '_id token phoneNumber');
 
-    console.log(nearestDriver);
+    //console.log(nearestDriver);
 
     res.status(200).send(__.success(nearestDriver));
 };
@@ -149,14 +162,14 @@ const bookUserDriver = async (req, res) => {
 
         __.sendNotification({
             data: {
-                status: rideStatus.DRIVER_DECLINED
+                status: '371'
             },
             token: ride.user.token
         });
         __.sendNotification({
             data: {
-                status: rideStatus.DRIVER_DECLINED,
-                rideId: rideId
+                status: '371',
+                rideId: ride._id
             },
             token: ride.partner.token
         });
@@ -239,11 +252,12 @@ const driverResponse = async (req, res) => {
             token: ride.user.token
         });
 
-        return res.status(200).send(__.success(ride.user.number));
+        return res.status(200).send(__.success(ride));
 
     } else if (response == rideStatus.DRIVER_DECLINED) {
-        await Driver.updateOne({ _id: driverId }, { 
-            $inc: { 'stats.declined': 1 }
+        await Driver.updateOne({ _id: req.body.driverId }, { 
+            $inc: { 'stats.declined': 1 },
+            $set: { 'status.online': false }
         });
 
         const { dispatch } = await Gini.findOne({}, 'dispatch');
@@ -272,15 +286,16 @@ const driverResponse = async (req, res) => {
     const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, { 
         $set: {
             customerCount: { driver: req.body.customerCount },
-            status: rideStatus.DRIVER_PICKUP
+            status: rideStatus.DRIVER_PICKUP,
+            timing: { pickup: new Date() },
         }
     });
 
     const code = randomize('A', 6);
-    console.log(code);
+    //console.log(code);
     const partnerId = ride.partner.id;
     await Partner.updateOne({ _id: partnerId, 'currentRides.rideId': req.body.rideId }, {
-        $push: { 'currentRides.$.code': code }
+        $set: { 'currentRides.$.code': code }
     });
     await Ride.updateOne({ _id: req.body.rideId }, {
         $set: { code: code }
@@ -304,13 +319,16 @@ const driverResponse = async (req, res) => {
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
-        $set: { status: rideStatus.DRIVER_DROP }
+        $set: { 
+            status: rideStatus.DRIVER_DROP,
+            timing: { drop: new Date() },
+        }
     });
 
     await Driver.updateOne({ _id: ride.driver.id }, {
         $set: {
             passenger: false,
-            currentRide: null
+            currentRide: null,
         }
     });
 
@@ -355,8 +373,18 @@ const driverResponse = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
+    var method;
+    if (req.body.online == true) method = 'online';
+    else method = 'offline';
+
     await Driver.updateOne({ _id: req.body.driverId }, {
-        $set: { 'status.online': req.body.online }
+        $set: { 
+            'status.online': req.body.online,
+            shifts: {
+                time: new Date(),
+                method: method
+            }
+        }
     });
 
     res.status(200).send(__.success('Online updated'));
@@ -364,6 +392,7 @@ const driverResponse = async (req, res) => {
 
 router.post('/signup', signup);
 router.post('/login', login);
+router.post('/logout', logout);
 router.post('/nearestDriver', nearestDriver);
 router.post('/bookUserDriver', bookUserDriver);
 router.post('/location', auth, location);

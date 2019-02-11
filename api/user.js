@@ -61,6 +61,7 @@ const login = async (req, res) => {
     });
 
     const token = user.generateAuthToken();
+    console.log("Token:", token);
     res.header('x-user-auth-token', token)
        .status(200)
        .send(__.success('Loged in.'));
@@ -90,11 +91,6 @@ const token = async (req, res) => {
 const rideRequest = async (req, res) => {
     const error = __.validate(req.body, {
         partnerId: Joi.string().required(),
-        //partnerNumber: Joi.string().required(),
-        //partnerToken: Joi.string().required(),    
-        //username: Joi.string().required(),
-        //userNumber: Joi.string().required(),
-        //userToken: Joi.string().required(),
         customerCount: Joi.number().integer().required(),
         address: Joi.string().required(),
         pickupLat: Joi.number().precision(8).required(),
@@ -109,7 +105,20 @@ const rideRequest = async (req, res) => {
         //return res.status(200).send(__.success('Already in a ride'));
 
     const user = await User.findOne({ _id: req.body.userId }, 'phoneNumber token username');
-    const partner = await Partner.findOne({ _id: req.body.partnerId }, 'token phoneNumber');
+    const partner = await Partner.findOne({ _id: req.body.partnerId }, 
+        'token phoneNumber address geolocation');
+
+    // process the pickup location
+    var address = req.body.address;
+    var i1 = address.lastIndexOf(',');
+    var i2 = address.lastIndexOf(' ', i1 - 1);
+    var i3 = address.lastIndexOf(',', i2 - 1);
+    var i4 = address.lastIndexOf(',', i3 - 1);
+
+    var zip = address.substring(i2 + 1, i1);
+    var state = address.substring(i3 + 2, i2);
+    var city = address.substring(i4 + 2, i3);
+    var line = address.substring(0, i4);
 
     const rideId = mongoose.Types.ObjectId();
     const ride = {
@@ -128,23 +137,36 @@ const rideRequest = async (req, res) => {
             user: req.body.customerCount
         },
         pickupLocation: {
-            address: req.body.address,
+            address: {
+                line: line,
+                state: state,
+                city: city,
+                zip: zip
+            },
             lat: req.body.pickupLat,
             lng: req.body.pickupLng
         },
+        dropLocation: {
+            address: partner.address,
+            lat: partner.geolocation.coordinates[1],
+            lng: partner.geolocation.coordinates[0]
+        },
         status: rideStatus.PARTNER_NOTIFIED,
+        timing: {
+            booked: new Date(),
+        },
     };
 
     const newRide = new Ride(ride);
     await newRide.save();
     await User.updateOne({ _id: req.body.userId }, {
-        $set: { currentRide: rideId }
+        $set: { currentRide: rideId },
+        $push: { allRides: rideId }
     });
     await Partner.updateOne({ _id: req.body.partnerId }, {
         $push: { allRides: rideId  }
     });
-
-    console.log("Partner tokrn :: ", partner.token);
+    
     __.sendNotification({
         data: {
             status: '101',
@@ -156,6 +178,23 @@ const rideRequest = async (req, res) => {
     });
 
     res.status(200).send(__.success('Notification send to partner. Wait for the response.'));
+};
+
+const rideHistory = async (req, res) => {
+    const error = __.validate(req.body, {
+        index: Joi.number().required(),
+    });
+    if (error) return res.status(400).send(__.error(error.message[0].details));
+
+    const { allRides } = await User.findOne({ _id: req.body.userId }, 'allRides');
+
+    const size = 15;
+    const start = allRides.length - 1 - req.body.index * size;
+
+    const rides = {};
+    for (var i = start; i >= start - size; i--) {
+        
+    }
 };
 
 const label = async (req, res) => {

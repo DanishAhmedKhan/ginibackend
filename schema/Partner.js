@@ -78,6 +78,9 @@ const partnerSchema = new Schema({
     open: {
         type: Boolean
     },
+    online: {
+        type: Boolean
+    },
     allRides: [{
         type: ObjectId,
         ref: 'Ride'

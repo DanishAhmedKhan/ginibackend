@@ -33,7 +33,7 @@ const driverSchema = new Schema({
         time: Date,
         method: {
             type: String, 
-            enum: ['login', 'logout', 'break-login', 'break-logout']
+            enum: ['login', 'logout', 'online', 'offline']
         }
     }],
     geolocation: {
@@ -43,7 +43,7 @@ const driverSchema = new Schema({
             default: 'Point'
         },
         coordinates: {
-            type: [Number]
+            type: [Number],
         }
     },
     currentRide: {
