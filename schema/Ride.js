@@ -68,6 +68,12 @@ const rideSchema = new Schema({
         drop: Date,
         confirmed: Date, 
     },
+    stats: {
+        duration: Number,
+        distance: Number,
+        fare: Number, 
+        incentive: Boolean,
+    },
     cancel: {
         value: {
             type: Boolean

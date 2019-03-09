@@ -66,6 +66,10 @@ const login = async (req, res) => {
     await Partner.updateOne({ _id: partner._id }, {
         $set: { 
             token: req.body.token,
+            shifts: {
+                time: new Date(),
+                method: 'login',
+            },
             online: true,
             open: true,
         } 
@@ -82,6 +86,10 @@ const logout = async (req, res) => {
         $set: {
             online: false,
             open: false,
+            shifts: {
+                time: new Date(),
+                method: 'logout',
+            }
         }
     });
 
@@ -136,12 +144,12 @@ const partnerDetail = async (req, res) => {
     );
 
     res.status(200).send(__.success(partnerDetails));
-}
+};
 
 const partner = async (req, res) => {
     const partner = await Partner.findOne({ _id: partnerId });
     res.status(200).send(partner);
-}
+};
 
 const isPartnerOpen = async (req, res) => {
     const partner = findOne({
@@ -207,14 +215,22 @@ const online = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
+    var method;
+    if (req.body.online == true) method = 'online';
+    else method = 'offline';
+
     await Partner.updateOne({ _id: req.body.partnerId }, {
         $set: {
-            onlien: req.body.online
+            onlien: req.body.online,
+            shifts: {
+                time: new Date(),
+                method: method,
+            }
         }
     });
     
     res.status(200).send(__.success('Online updated'));
-}
+};
 
 const token = async (req, res) => {
     const error = __.validate(req.body, {
@@ -227,7 +243,7 @@ const token = async (req, res) => {
     });
 
     res.status(200).send(__.success('Token updated.'));
-}
+};
 
 const scanCode = async (req, res) => {
     const error = __.validate(req.body, {
@@ -269,7 +285,7 @@ const scanCode = async (req, res) => {
     } else {
         res.status(200).send(__.success(''));
     }
- };
+};
 
 const greyList = async (partnerId) => {
     const { currentRides } = await Partner.findOne({ _id: partnerId }, 'currentRides');
@@ -279,6 +295,11 @@ const greyList = async (partnerId) => {
 
     for (var i = 0; i < currentRides.length; i++) {
         const { user } = await Ride.findOne({ _id: currentRides[i].rideId }, 'user');
+
+        await User.updateOne({ _id: user.id }, {
+            $inc: { 'greylist.misuseCount': 1 },
+        });
+
         __.sendNotification({
             data: {
                 status: '997'

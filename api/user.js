@@ -325,4 +325,8 @@ router.post('/axiosTest', async (req, res) => {
     res.status(200).send('sadjaskjdaskjdsajksa');
 });
 
+router.post('/aws-test', async (req, res) => {
+    res.status(200).send('Hello from AWS EC2!');
+});
+
 module.exports = router;

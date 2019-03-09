@@ -20,10 +20,10 @@ const partnerSchema = new Schema({
     },
     email: {
         type: String, 
-        unique: true
+        unique: true 
     },
     password: {
-        type: String
+        type: String,
     },
     phoneNumber: {
         type: String,
@@ -32,8 +32,15 @@ const partnerSchema = new Schema({
         line: String, 
         state: String, 
         city: String, 
-        zip: String
+        zip: String 
     },
+    shifts: [{
+        time: Date,
+        method: {
+            type: String, 
+            enum: [ 'login', 'logout', 'online', 'offline' ],
+        }
+    }],
     rating: {
         gini: Number,
         google: Number,

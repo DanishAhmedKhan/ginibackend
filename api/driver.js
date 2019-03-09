@@ -274,7 +274,7 @@ const driverResponse = async (req, res) => {
     }
 
     res.status(200).send(__.success('Updated.'));
- };
+};
 
  const pickup = async (req, res) => {
     const error = __.validate(req.body, {
@@ -315,6 +315,7 @@ const driverResponse = async (req, res) => {
  const drop = async (req, res) => {
     const error = __.validate(req.body, {
         rideId: Joi.string().required(),
+        distance: Joi.number().required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
@@ -322,6 +323,9 @@ const driverResponse = async (req, res) => {
         $set: { 
             status: rideStatus.DRIVER_DROP,
             timing: { drop: new Date() },
+            stats: {
+                distance: req.body.distance,
+            },
         }
     });
 
