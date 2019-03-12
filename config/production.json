@@ -1,3 +1,4 @@
 {
-    "name": "Gini Production"
+    "name": "Gini Production",
+    "db": "mongodb+srv://danishAK:kennySs1mple@gini-cluster-delv8.mongodb.net/test?retryWrites=true"
 }

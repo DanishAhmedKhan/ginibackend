@@ -9,9 +9,12 @@ const ObjectId = Schema.ObjectId;
 const userSchema = new Schema({
     deviceId: {
         type: String,
+        unique: true,
+        required: true,
     },
     token: {
-        type: String
+        type: String,
+        required: true,
     },
     email: {
         type: String,

@@ -9,8 +9,6 @@ const cors = require('cors');
 
 const app = express();
 
-console.log("Trying to start gini server...");
-
 var serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
@@ -21,11 +19,15 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
 
+const env = app.get('env');
+console.log(`Trying to start gini server(in ${env} mode)...`);
+
 if (app.get('env') == 'development') {
     app.use(morgan('tiny'));
 }
 
 if (app.get('env') == 'production') {
+    app.use(morgan('tiny'));
     app.use(helmet());
 }
 

@@ -406,6 +406,23 @@ router.post('/token', token);
 router.post('/drop', auth, drop);
 router.post('/online', auth, online);
 
+router.post('/initDriver', async (req, res) => {
+    var driver = new Driver({
+        email: 'driver@gmail.com',
+        password: '$2b$10$WzIoJsBtXGopsOBuu2kcDu4yAAJanVOFweq4ndgCIs4Ng2Es71Hi2',
+        token: 'fuHC3aiXKmY:APA91bG7xwAFF3pnYtFLo1QBZvTXqK1AH3sUuCF2szC_hMSQ5mhv5GNAXOqBflFrL-VhyIHYQ54XUUZgBPODUGai58tjSfm7GhM03kdB4_YpLEqcZs6xm0dHdXOb6Fl9tmGj7Nj5osNZ',
+        geoloaction: {
+            coordinates: [88.359724, 22.5520686],
+            type: 'Point',
+        },
+        name: 'Inzamam',
+        phoneNumber: '9831185677',
+        status: {
+            online: false,
+        },
+    });
+});
+
 router.post('/initCar', async (req, res) => {
     var car1 = new Car({
         brand: 'Toyota',

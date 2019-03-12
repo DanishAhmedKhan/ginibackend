@@ -21,13 +21,15 @@ const signup = async (req, res) => {
         password: Joi.string().required().min(5).max(255),
         phoneNumber: Joi.string().required(),
         token: Joi.string().required(),
+        deviceId: Joi.string().required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    let user = await User.findOne({ email: req.body.email });
-    if (user) return res.status(400).send('User already registered');
+    let user;
+    user = await User.findOne({ email: req.body.email });
+    if (user) return res.status(400).send(__.error('User already registered'));
 
-    user = _.pick(req.body, ['email', 'password', 'phoneNumber', 'token']);
+    user = _.pick(req.body, ['email', 'password', 'phoneNumber', 'token', 'deviceId']);
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(user.password, salt);
@@ -35,11 +37,21 @@ const signup = async (req, res) => {
     const newUser = new User(user);
     await newUser.save();
     const token = newUser.generateAuthToken();
-    console.log("Token = " + token);
 
     res.header('x-user-auth-token', token)
        .status(200)
        .send(__.success('Signed up.'));
+};
+
+const checkDeviceId = async (req, res) => {
+    const error = __.validate(req.body, {
+        deviceId: Joi.string().required(),
+    });
+    if (error) res.status(400).send(__.error(error.message[0].details));
+
+    const user = await User.findOne({ deviceId: req.body.deviceId });
+    if (user) return res.status(200).send(__.success(true));
+    return res.status(200).send(__.success(false));
 };
 
 const login = async (req, res) => {
@@ -61,7 +73,7 @@ const login = async (req, res) => {
     });
 
     const token = user.generateAuthToken();
-    console.log("Token:", token);
+    //console.log("Token:", token);
     res.header('x-user-auth-token', token)
        .status(200)
        .send(__.success('Loged in.'));
@@ -263,6 +275,7 @@ router.post('/test', async (req, res) => {
 });
 
 router.post('/signup', signup);
+router.post('/checkDeviceId', checkDeviceId);
 router.post('/login', login);
 router.post('/isLoggedIn', isLoggedIn);
 router.post('/logout', auth, logout);
@@ -273,60 +286,12 @@ router.post('/label', label);
 router.post('/allLabel', allLabel);
 router.post('/deletelabel', deleteLabel);
 
-
-router.post('/testNotification', async (req, res) => {
-    console.log('Testing....');
-    var registrationToken = 'eJmpvpSwDA0:APA91bFUMxPVO8nbusLLRmxoTOKTz2aOdOZgQiz3GEI7QAPucStlTOwBJy50e73j8ehNEEah6CfGczdxz6MdWR4VwftAP5Gmc9S5QDQO54ksn1yocYnmGSLt96u7xatDsL4C8wSPsh51';
-
-    res.status(200).send('CR7 is the best');
-
-    __.sendNotification({
-        data: {
-            s: '101',
-            u: 'Danish',
-            c: '4',
-        },
-        token: registrationToken
-    });
-}); 
-
-router.post('/updateLocation', async (req, res) => {
-    console.log('Lat', req.body.lat);
-    console.log("count ======= ", req.body.count);
-
-    res.status(200).send('Success CR7!');
-});
-
-router.post('/sample', async (req, res) => {
-    console.log('Sample route requested!');
-
-    const x = 13;
-    if (x == 123) return res.status(400).send(__.error('some error00'));
-
-    res.status(200).send('cristiano ronaldo');
-});
-
-router.post('/axiosTest', async (req, res) => {
-    try {
-        const apiResponse = await axios.post('http://localhost:4000/api/user/sample', {
-            x: 123
-        });
-        console.log(apiResponse.data);
-
-        
-    } catch (err) {
-        console.log('ERROR');
-        console.log(err.response);
-        //console.log(err);
-        console.log(err.response.data);
-        console.log(err.response.status);
-    }
-
-    res.status(200).send('sadjaskjdaskjdsajksa');
-});
-
 router.post('/aws-test', async (req, res) => {
     res.status(200).send('Hello from AWS EC2!');
+});
+
+router.get('/aws-get-test', async (req, res) => {
+    res.status(200).get('Hello from AWS (GET request)');
 });
 
 module.exports = router;
