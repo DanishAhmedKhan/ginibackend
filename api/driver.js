@@ -142,7 +142,7 @@ const bookUserDriver = async (req, res) => {
 
     let nearestDriver;
     try {
-        const nearestDriverUrl = 'http://' + ip.address() + ':4000/api/driver/nearestDriver';
+        const nearestDriverUrl = 'http://' + '13.233.140.191' + ':4000/api/driver/nearestDriver';
         const apiResponse = await axios.post(nearestDriverUrl, {
             lat: ride.pickupLocation.lat,
             lng: ride.pickupLocation.lng

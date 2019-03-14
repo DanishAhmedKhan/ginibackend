@@ -35,8 +35,7 @@ app.use(cors());
 
 const env = app.get('env');
 const ipAddress = ip.address();
-console.log(ipAddress);
-console.log(`Trying to start gini server at (in ${env} mode)...`);
+console.log(`Trying to start gini server at ${ipAddress} (in ${env} mode)...`);
 
 if (app.get('env') == 'development') {
     app.use(morgan('tiny'));

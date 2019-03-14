@@ -179,7 +179,7 @@ const partnerResponse = async (req, res) => {
             });
 
             if (dispatch == 'auto' || dispatch == 'semi-auto') {
-                const bookUserDriverUrl = 'http://' + ip.address() + ':4000/api/driver/bookUserDriver';
+                const bookUserDriverUrl = 'http://' + '13.233.140.191' + ':4000/api/driver/bookUserDriver';
                 await axios.post(bookUserDriverUrl, {
                     ride: ride
                 });
