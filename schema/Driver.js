@@ -20,6 +20,7 @@ const driverSchema = new Schema({
     },
     car: {
         type: ObjectId,
+        ref: 'Car'
     },
     token: {
         type: String

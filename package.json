@@ -22,6 +22,7 @@
     "express": "^4.16.3",
     "firebase-admin": "^6.1.0",
     "helmet": "^3.13.0",
+    "ip": "^1.1.5",
     "joi": "^13.7.0",
     "jsonwebtoken": "^8.3.0",
     "lodash": "^4.17.11",

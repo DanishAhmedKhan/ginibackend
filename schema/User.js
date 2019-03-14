@@ -46,9 +46,9 @@ const userSchema = new Schema({
     },
     favouritePickupLocations: [{
         label: String, 
-        address: String,
+        address: String, 
         lat: Number, 
-        lng: Number
+        lng: Number 
     }],
     currentRide: {
         type: ObjectId,

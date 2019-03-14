@@ -3,6 +3,7 @@ const Joi = require('joi');
 const _ = require('lodash');
 const __ = require('./apiUtil');
 const axios = require('axios');
+const ip = require('ip');
 const bcrypt = require('bcrypt');
 const randomize = require('randomatic');
 const Driver = require('../schema/Driver');
@@ -92,8 +93,8 @@ const logout = async (req, res) => {
 
 const location = async (req, res) => {
     const error = __.validate(req.body, {
-        lat: Joi.number().precision(8).required(),
-        lng: Joi.number().precision(8).required(),
+        lat: Joi.number().precision(8).min(-90).max(90).required(),
+        lng: Joi.number().precision(8).min(-180).max(180).required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
@@ -141,7 +142,8 @@ const bookUserDriver = async (req, res) => {
 
     let nearestDriver;
     try {
-        const apiResponse = await axios.post('htttp://localhost:4000/api/driver/nearestDriver', {
+        const nearestDriverUrl = 'http://' + ip.address() + ':4000/api/driver/nearestDriver';
+        const apiResponse = await axios.post(nearestDriverUrl, {
             lat: ride.pickupLocation.lat,
             lng: ride.pickupLocation.lng
         }); 
@@ -364,7 +366,7 @@ const driverResponse = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    await Driver.update({ _id: driverId }, {
+    await Driver.update({ _id: req.body.driverId }, {
         $set: { token: req.body.token }
     });
 
@@ -412,7 +414,7 @@ router.post('/initDriver', async (req, res) => {
         password: '$2b$10$WzIoJsBtXGopsOBuu2kcDu4yAAJanVOFweq4ndgCIs4Ng2Es71Hi2',
         token: 'fuHC3aiXKmY:APA91bG7xwAFF3pnYtFLo1QBZvTXqK1AH3sUuCF2szC_hMSQ5mhv5GNAXOqBflFrL-VhyIHYQ54XUUZgBPODUGai58tjSfm7GhM03kdB4_YpLEqcZs6xm0dHdXOb6Fl9tmGj7Nj5osNZ',
         geoloaction: {
-            coordinates: [88.359724, 22.5520686],
+            coordinates: [ 88.359724, 22.5520686 ],
             type: 'Point',
         },
         name: 'Inzamam',
@@ -421,6 +423,10 @@ router.post('/initDriver', async (req, res) => {
             online: false,
         },
     });
+
+    await driver.save();
+
+    res.status(200).send(__.success('Driver initialized.'));
 });
 
 router.post('/initCar', async (req, res) => {

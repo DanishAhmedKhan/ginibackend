@@ -7,6 +7,7 @@ const _ = require('lodash');
 const __ = require('./apiUtil');
 const axios = require('axios');
 const Joi = require('joi');
+const ip = require('ip');
 const User = require('../schema/User');
 const Ride = require('../schema/Ride');
 const Partner = require('../schema/Partner');
@@ -60,7 +61,7 @@ const login = async (req, res) => {
         password: Joi.string().required().min(5).max(255),
         token: Joi.string().required(),
     });
-    if (error) return res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const user = await User.findOne({ email: req.body.email });
     if (!user) return res.status(400).send(__.error('Invalid email or password.'));
@@ -93,7 +94,7 @@ const token = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    await User.update({ _id: req.user._id }, {
+    await User.updateOne({ _id: req.user._id }, {
         $set: { token: req.body.token }
     });
 
@@ -105,16 +106,10 @@ const rideRequest = async (req, res) => {
         partnerId: Joi.string().required(),
         customerCount: Joi.number().integer().required(),
         address: Joi.string().required(),
-        pickupLat: Joi.number().precision(8).required(),
-        pickupLng: Joi.number().precision(8).required()
+        pickupLat: Joi.number().precision(8).min(-90).max(90).required(),
+        pickupLng: Joi.number().precision(8).min(-180).max(180).required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
-
-    //return res.status(200).send(__.success("WORKING!"));
-
-    //const { currentRide } = await User.findOne({ _id: req.body.userId }, 'currentRide');
-    //if (currentRide != null) 
-        //return res.status(200).send(__.success('Already in a ride'));
 
     const user = await User.findOne({ _id: req.body.userId }, 'phoneNumber token username');
     const partner = await Partner.findOne({ _id: req.body.partnerId }, 
@@ -213,14 +208,14 @@ const label = async (req, res) => {
     const error = __.validate(req.body, {
         label: Joi.string().required(),
         address: Joi.string().required(),
-        lat: Joi.numner().required(),
-        lng: Joi.number().required(),
+        lat: Joi.number().precesion(8).min(-90).max(90).required(),
+        lng: Joi.number().reqcision(8).min(-180).max(180).required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const label = _.pick(req.body, ['label', 'address', 'lat', 'lng']);
 
-    await User.updateOne({ _id: userId }, {
+    await User.updateOne({ _id: req.body.userId }, {
         $push: { favouritePickupLocations: label }
     });
 
@@ -228,8 +223,7 @@ const label = async (req, res) => {
 };
 
 const allLabel = async (req, res) => {
-    const labels = await User.findOne({ _id: userId }, 'favouritePickupLocations');
-
+    const labels = await User.findOne({ _id: req.body.userId }, 'favouritePickupLocations');
     res.status(200).send(__.success(labels));
 }
 
@@ -243,7 +237,7 @@ const deleteLabel = async (req, res) => {
         $pull: { favouritePickupLocations: { label: req.body.label } }
     });
 
-    res.status(200).send(__.success('Deleted label.'));
+    res.status(200).send(__.success('Label Deleated.'));
 }
 
 const getAllUser = async (req, res) => {
@@ -255,10 +249,10 @@ const isLoggedIn = async (req, res) => {
     const error = __.validate(req.body, {
         userToken: Joi.string().required()
     });
-    if (error) res.status(400).send('Token not send.');
+    if (error) res.status(400).send(__.error('Token not send.'));
 
-    const result = await User.findOne({ _id: req.body.userId }, 'login token');
-    const response = result.login && result.token != req.body.token;
+    const userDetail = await User.findOne({ _id: req.body.userId }, 'login token');
+    const response = userDetail.login && userDetail.token != req.body.userToken;
 
     res.status(200).send(__.success(response));
 };
@@ -268,11 +262,6 @@ const isGreyListed = async (req, res) => {
 
     res.status(200).send(__.success(result));
 };
-
-router.post('/test', async (req, res) => {
-    console.log('Testign route');
-    res.status(200).send('CR7');
-});
 
 router.post('/signup', signup);
 router.post('/checkDeviceId', checkDeviceId);
@@ -286,12 +275,8 @@ router.post('/label', label);
 router.post('/allLabel', allLabel);
 router.post('/deletelabel', deleteLabel);
 
-router.post('/aws-test', async (req, res) => {
-    res.status(200).send('Hello from AWS EC2!');
-});
-
 router.get('/aws-get-test', async (req, res) => {
-    res.status(200).get('Hello from AWS (GET request)');
+    res.status(200).send('Hello from AWS (GET request)');
 });
 
 module.exports = router;

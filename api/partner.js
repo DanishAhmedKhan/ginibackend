@@ -2,6 +2,7 @@ const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcrypt');
 const _ = require('lodash');
+const ip = require('ip');
 const __ = require('./apiUtil');
 const axios = require('axios');
 const admin = require('firebase-admin');
@@ -23,18 +24,16 @@ const signup = async (req, res) => {
         email: Joi.string().required().min(5).max(255).email(),
         password: Joi.string().required().min(5).max(255)
     });
-    if (error) return res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     let partner = await Partner.findOne({ email: req.body.email });
-    if (partner) return res.status(400).send('Email already registered');
+    if (partner) return res.status(400).send(__.error('Email already registered'));
 
     partner = _.pick(req.body, ['name', 'email', 'password', 'address']);
     partner.geolocation = {
         type: 'Point',
         coordinates: [req.body.lng, req.body.lat]
     }
-
-    console.log(partner);
 
     const salt = await bcrypt.genSalt(10);
     partner.password = await bcrypt.hash(partner.password, salt);
@@ -46,7 +45,7 @@ const signup = async (req, res) => {
     res.header('x-gini-agent', 'partner')
        .header('x-partner-auth-token', token)
        .status(200)
-       .send('Partner signed up.');
+       .send(__.success('Partner signed up.'));
 };
 
 const login = async (req, res) => {
@@ -55,13 +54,13 @@ const login = async (req, res) => {
         password: Joi.string().required().min(5).max(255),
         token: Joi.string().required()
     });
-    if (error) return res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).send(__.error(error.details[0].message));
 
     const partner = await Partner.findOne({ email: req.body.email });
-    if (!partner) return res.status(400).send('Invalid email or password');
+    if (!partner) return res.status(400).send(__.error('Invalid email or password'));
 
     const validPassword = await bcrypt.compare(req.body.password, partner.password);
-    if (!validPassword) return res.status(400).send('Invalid email or password');
+    if (!validPassword) return res.status(400).send(__.error('Invalid email or password'));
 
     await Partner.updateOne({ _id: partner._id }, {
         $set: { 
@@ -111,12 +110,14 @@ const deleteAllPartners = async (req, res) => {
 };
 
 const nearestPartner = async (req, res) => {
-    console.log("(" + req.body.lat + ", " + req.body.lng + ")");
+    //console.log("(" + req.body.lat + ", " + req.body.lng + ")");
     const error = __.validate(req.body, {
-        lat: Joi.number().precision(8).required(),
-        lng: Joi.number().precision(8).required()
+        lat: Joi.number().precision(8).min(-90).max(90).required(),
+        lng: Joi.number().precision(8).min(-180).max(180).required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const maxDistance = config.get('partnerSearchMaxDistance');
 
     const partners = await Partner.find({
         geolocation: {
@@ -125,7 +126,7 @@ const nearestPartner = async (req, res) => {
                     type: 'Point',
                     coordinates: [ req.body.lng, req.body.lat ]
                 },
-                $maxDistance: 10000 //in meters
+                $maxDistance: maxDistance //in meters
             }
         }
     }, '_id name address rating');
@@ -147,16 +148,13 @@ const partnerDetail = async (req, res) => {
 };
 
 const partner = async (req, res) => {
-    const partner = await Partner.findOne({ _id: partnerId });
-    res.status(200).send(partner);
+    const partner = await Partner.findOne({ _id: req.body.partnerId });
+    res.status(200).send(__.success(partner));
 };
 
 const isPartnerOpen = async (req, res) => {
-    const partner = findOne({
-        _id: req.body.agent._id,
-    }, 'open');
-
-    res.status(200).send(__.success(partner.open));
+    const { open } = findOne({_id: req.body.partnerId,}, 'open');
+    res.status(200).send(__.success(open));
 };
 
 const partnerResponse = async (req, res) => {
@@ -181,7 +179,8 @@ const partnerResponse = async (req, res) => {
             });
 
             if (dispatch == 'auto' || dispatch == 'semi-auto') {
-                await axios.post('http://localhost:4000/api/driver/bookUserDriver', {
+                const bookUserDriverUrl = 'http://' + ip.address() + ':4000/api/driver/bookUserDriver';
+                await axios.post(bookUserDriverUrl, {
                     ride: ride
                 });
             } 
@@ -238,7 +237,7 @@ const token = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    await Partner.update({ _id: partnerId }, {
+    await Partner.updateOne({ _id: req.body.partnerId }, {
         $set: { token: req.body.token }
     });
 
@@ -287,6 +286,7 @@ const scanCode = async (req, res) => {
     }
 };
 
+// function
 const greyList = async (partnerId) => {
     const { currentRides } = await Partner.findOne({ _id: partnerId }, 'currentRides');
     console.log("CURRENT RIDES = ", currentRides);
@@ -350,7 +350,7 @@ router.post('/initPartnerData', async (req, res) => {
             menu: 'www.dominos.in/menu',
             website: 'www.dominos.com',
         },
-        open: true,
+        open: false,
     });
     await partner1.save();
 
@@ -361,7 +361,7 @@ router.post('/initPartnerData', async (req, res) => {
         },
         name: 'Pizza Hut',
         email: 'pizzahut@gmail.com',
-        password: '"$2b$10$5EeWo3XLjvC4pMaQITqYYOVu3K5W50imOpRftOHlSsWbLQTZU/YVe',
+        password: '$2b$10$5EeWo3XLjvC4pMaQITqYYOVu3K5W50imOpRftOHlSsWbLQTZU/YVe',
         token: '',
         address: {
             line: 'Salt Lake',
@@ -377,12 +377,11 @@ router.post('/initPartnerData', async (req, res) => {
             menu: 'www.pizzahut.in/menu',
             website: 'www.pizzahut.com',
         },
-        open: true,
+        open: false,
     });
     await partner2.save();
 
-    res.status(200).send('Added the partner data to databse.');
-
+    res.status(200).send(__.success('Added the partner data to databse.'));
 });
 
 module.exports = router;
