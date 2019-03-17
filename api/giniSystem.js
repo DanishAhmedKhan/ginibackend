@@ -13,7 +13,7 @@ const initialize = async (req, res) => {
     });
     await giniSystem.save();
 
-    res.status(200).send('Gini System initialized.');
+    res.status(200).send(__.success('Gini System initialized.'));
 }
 
 const setDispatch = async (req, res) => {
@@ -26,7 +26,7 @@ const setDispatch = async (req, res) => {
         $set: { dispatch: req.body.dispatch }
     });
 
-    res.status(200).send('Dispatched updated.');
+    res.status(200).send(__.success('Dispatched updated.'));
 }
 
 router.post('/initialize', initialize);

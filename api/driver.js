@@ -3,6 +3,7 @@ const Joi = require('joi');
 const _ = require('lodash');
 const __ = require('./apiUtil');
 const axios = require('axios');
+const config = require('config');
 const ip = require('ip');
 const bcrypt = require('bcrypt');
 const randomize = require('randomatic');
@@ -114,8 +115,6 @@ const nearestDriver = async (req, res) => {
         lng: Joi.number().precision(8).min(-180).max(180).required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
-    //console.log("Lat = " + req.body.lat);
-    //console.log("Lng = " + req.body.lng);
 
     const nearestDriver = await Driver.findOne({
         geolocation: {
@@ -317,7 +316,7 @@ const driverResponse = async (req, res) => {
  const drop = async (req, res) => {
     const error = __.validate(req.body, {
         rideId: Joi.string().required(),
-        distance: Joi.number().required(),
+        distance: Joi.number().min(0).required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
@@ -413,7 +412,7 @@ router.post('/initDriver', async (req, res) => {
         email: 'driver@gmail.com',
         password: '$2b$10$WzIoJsBtXGopsOBuu2kcDu4yAAJanVOFweq4ndgCIs4Ng2Es71Hi2',
         token: 'fuHC3aiXKmY:APA91bG7xwAFF3pnYtFLo1QBZvTXqK1AH3sUuCF2szC_hMSQ5mhv5GNAXOqBflFrL-VhyIHYQ54XUUZgBPODUGai58tjSfm7GhM03kdB4_YpLEqcZs6xm0dHdXOb6Fl9tmGj7Nj5osNZ',
-        geoloaction: {
+        geolocation: {
             coordinates: [ 88.359724, 22.5520686 ],
             type: 'Point',
         },

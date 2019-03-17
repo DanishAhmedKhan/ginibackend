@@ -35,9 +35,7 @@ const userSchema = new Schema({
     phoneNumber: {
         type: String
     },
-    meta: {
-
-    },
+    meta: {},
     loggedIn: {
         type: Boolean
     },
@@ -61,7 +59,8 @@ const userSchema = new Schema({
     geolocation: {
         type: {
             type: String, 
-            enum: ['Point']
+            enum: ['Point'],
+            default: 'Point',
         },
         coordinates: {
             type: [Number]
@@ -80,9 +79,6 @@ const userSchema = new Schema({
         misuseCount: Number, 
         moneyDue: Number,
         penalty: Number,
-        // payment: [{
-
-        // }]
     }
 });
 

@@ -5,6 +5,7 @@ const _ = require('lodash');
 const ip = require('ip');
 const __ = require('./apiUtil');
 const axios = require('axios');
+const config = require('config');
 const admin = require('firebase-admin');
 const Partner = require('../schema/Partner');
 const Ride = require('../schema/Ride');
@@ -110,14 +111,13 @@ const deleteAllPartners = async (req, res) => {
 };
 
 const nearestPartner = async (req, res) => {
-    //console.log("(" + req.body.lat + ", " + req.body.lng + ")");
     const error = __.validate(req.body, {
         lat: Joi.number().precision(8).min(-90).max(90).required(),
         lng: Joi.number().precision(8).min(-180).max(180).required()
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
-    const maxDistance = config.get('partnerSearchMaxDistance');
+    const maxDistance = config.get('partnerSearchMaxDistance') || 10000;
 
     const partners = await Partner.find({
         geolocation: {
@@ -179,7 +179,7 @@ const partnerResponse = async (req, res) => {
             });
 
             if (dispatch == 'auto' || dispatch == 'semi-auto') {
-                const bookUserDriverUrl = 'http://' + '13.233.140.191' + ':4000/api/driver/bookUserDriver';
+                const bookUserDriverUrl = 'http://13.233.140.191:4000/api/driver/bookUserDriver';
                 await axios.post(bookUserDriverUrl, {
                     ride: ride
                 });

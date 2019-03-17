@@ -7,6 +7,7 @@ const _ = require('lodash');
 const __ = require('./apiUtil');
 const axios = require('axios');
 const Joi = require('joi');
+const config = require('config');
 const ip = require('ip');
 const User = require('../schema/User');
 const Ride = require('../schema/Ride');
