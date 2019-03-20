@@ -2,5 +2,6 @@
     "name": "Gini",
     "server": {
         "port": 4000
-    }
+    },
+    "partnerSearchMaxDistance": 10000
 }

@@ -112,7 +112,8 @@ const location = async (req, res) => {
 const nearestDriver = async (req, res) => {
     const error = __.validate(req.body, {
         lat: Joi.number().precision(8).min(-90).max(90).required(),
-        lng: Joi.number().precision(8).min(-180).max(180).required()
+        lng: Joi.number().precision(8).min(-180).max(180).required(),
+        driverCancelled: Joi.string().required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
@@ -126,12 +127,11 @@ const nearestDriver = async (req, res) => {
                 $maxDistance: 10000 //in meters
             },
         },
+        _id: { $nin: [ObjectId(req.body.driverCancelled)] },
         'status.online': true,
         //passenger: false,
         // rating: ...
     }, '_id token phoneNumber');
-
-    //console.log(nearestDriver);
 
     res.status(200).send(__.success(nearestDriver));
 };
@@ -141,10 +141,14 @@ const bookUserDriver = async (req, res) => {
 
     let nearestDriver;
     try {
-        const nearestDriverUrl = 'http://' + '13.233.140.191' + ':4000/api/driver/nearestDriver';
+        var driverCancelled = ride.driverCancelled;
+        if (driverCancelled == null) driverCancelled = "null";
+
+        const nearestDriverUrl = 'http://13.233.140.191:4000/api/driver/nearestDriver';
         const apiResponse = await axios.post(nearestDriverUrl, {
             lat: ride.pickupLocation.lat,
-            lng: ride.pickupLocation.lng
+            lng: ride.pickupLocation.lng,
+            driverCancelled: driverCancelled,
         }); 
         nearestDriver = apiResponse.data.data;
     } catch (err) {
@@ -258,7 +262,12 @@ const driverResponse = async (req, res) => {
     } else if (response == rideStatus.DRIVER_DECLINED) {
         await Driver.updateOne({ _id: req.body.driverId }, { 
             $inc: { 'stats.declined': 1 },
-            $set: { 'status.online': false }
+            $set: { 'status.online': false },
+            $push: { cancelledRides: ride._id },
+        });
+
+        await Ride.updateOne({ _id: ride._id }, {
+            $set: { cancelledDriver: req.body.driverId }
         });
 
         const { dispatch } = await Gini.findOne({}, 'dispatch');

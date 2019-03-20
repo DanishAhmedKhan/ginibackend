@@ -54,6 +54,14 @@ const driverSchema = new Schema({
         type: ObjectId,
         ref: 'Ride'
     }],
+    declinedRides: [{
+        type: ObjectId,
+        ref: 'Ride',
+    }],
+    cancelledRides: [{
+        type: ObjectId,
+        ref: 'Ride',
+    }],
     stats: {
         declined: Number,
         cancled: Number,

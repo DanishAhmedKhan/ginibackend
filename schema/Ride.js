@@ -36,6 +36,10 @@ const rideSchema = new Schema({
         user: Number, 
         driver: Number
     },
+    driverCancelled: {
+        type: ObjectId,
+        ref: 'Driver',
+    },
     code: {
         type: String
     },
