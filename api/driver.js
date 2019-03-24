@@ -2,6 +2,7 @@ const express = require('express');
 const Joi = require('joi');
 const _ = require('lodash');
 const __ = require('./apiUtil');
+const mongoose = require('mongoose');
 const axios = require('axios');
 const config = require('config');
 const ip = require('ip');
@@ -15,6 +16,9 @@ const Car = require('../schema/Car');
 const rideStatus = require('./rideStatus');
 const Gini = require('../schema/Gini');
 const auth = require('../middlewares/auth');
+
+const Schema = mongoose.Schema;
+const ObjectId = Schema.ObjectId;
 
 const router = express.Router();
 
@@ -117,6 +121,11 @@ const nearestDriver = async (req, res) => {
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
 
+    var id;
+    if (req.body.driverCancelled == "null")
+    id = "5c8b9459e6d3cf2ca4c2ce11" //Dummy object id
+    id = ObjectId(id);
+
     const nearestDriver = await Driver.findOne({
         geolocation: {
             $near: {
@@ -127,9 +136,9 @@ const nearestDriver = async (req, res) => {
                 $maxDistance: 10000 //in meters
             },
         },
-        _id: { $nin: [ObjectId(req.body.driverCancelled)] },
+        _id: { $nin: [id] },
         'status.online': true,
-        //passenger: false,
+        'status.passenger': false,
         // rating: ...
     }, '_id token phoneNumber');
 
@@ -202,9 +211,6 @@ const bookUserDriver = async (req, res) => {
 const driverResponse = async (req, res) => {
     const error = __.validate(req.body, {
         response: Joi.number().integer().required(),
-        //drivername: Joi.string().required(),
-        //driverToken: Joi.string().required(),
-        //driverPhoneNumber: Joi.string().required(),
         rideId: Joi.string().required(),
     });
     if (error) return res.status(400).send(__.error(error.details[0].message));
@@ -224,9 +230,10 @@ const driverResponse = async (req, res) => {
     if (response == rideStatus.DRIVER_CONFIRMED) {
         await Driver.updateOne({ _id: req.body.driverId }, { 
             $set: {
-                passenger: true,
+                'status.passenger': true,
                 currentRide: req.body.rideId,
-            }
+            },
+            $push: { allRides: ride._id }
         });
         await Ride.updateOne({ _id: req.body.rideId }, {
             $set: {
@@ -286,6 +293,49 @@ const driverResponse = async (req, res) => {
     res.status(200).send(__.success('Updated.'));
 };
 
+const cancelRide = async (req, res) => {
+    const error = __.validate(req.body, {
+        rideId: Joi.string().required(),
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
+        $set: {
+            status: '779',
+            cancel: {
+                value: true,
+                by: 'driver',
+                time: new Date(),
+            }
+        }
+    });
+
+    await Driver.updateOne({ _id: req.body._id }, {
+        $set: {
+            'status.passenger': false, 
+            currentRide: null,
+        },
+        $inc: { 'stats.cancelled': 1 },
+        $push: { cancelledRides: req.body.rideId },
+    });
+
+    await User.updateOne({ _id: ride.user.id }, {
+        $set: { currentRide: null, }
+    });
+
+    __.sendNotification({
+        data: { status: '779' },
+        token: ride.user.id
+    });
+
+    __.sendNotification({
+        data: { status: '779' },
+        token: ride.partner.id
+    });
+
+    res.status(200).send(__.success('RIde cancelles'));
+};  
+
  const pickup = async (req, res) => {
     const error = __.validate(req.body, {
         rideId: Joi.string().required(),
@@ -341,7 +391,7 @@ const driverResponse = async (req, res) => {
 
     await Driver.updateOne({ _id: ride.driver.id }, {
         $set: {
-            passenger: false,
+            'status.passenger': false,
             currentRide: null,
         }
     });
@@ -411,6 +461,7 @@ router.post('/nearestDriver', nearestDriver);
 router.post('/bookUserDriver', bookUserDriver);
 router.post('/location', auth, location);
 router.post('/response', auth, driverResponse);
+router.post('/cancelRide', auth, cancelRide);
 router.post('/pickup', auth, pickup);
 router.post('/token', token);
 router.post('/drop', auth, drop);

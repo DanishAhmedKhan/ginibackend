@@ -185,7 +185,49 @@ const rideRequest = async (req, res) => {
         token: partner.token
     });
 
-    res.status(200).send(__.success('Notification send to partner. Wait for the response.'));
+    res.status(200).send(__.success(rideId));
+};
+
+const cancelRide = async (req, res) => {
+    const error = __.validate(req.body, {
+        rideId: Joi.string().required(),
+    });
+    if (error) return res.status(400).send(__.error(error.details[0].message));
+
+    const ride = await Ride.findOneAndUpdate({ _id: req.body.rideId }, {
+        $set: {
+            status: '659',
+            cancel: {
+                value: true,
+                by: 'user',
+                time: new Date(),
+            },
+        }
+    });
+
+    await Driver.updateOne({ _id: ride.driver.id }, {
+        $set: {
+            'status.passenger': false,
+            currentRide: null,
+        }
+    });
+
+    await User.updateOne({ _id: req.body._id }, {
+        $set: { currentRide: null, },
+        $inc: { 'stats.cancelled': 1 }
+    });
+
+    __.sendNotification({
+        data: { status: '659' },
+        token: ride.driver.id
+    });
+
+    __.sendNotification({
+        data: { status: '659' },
+        token: ride.partner.id
+    })
+
+    res.status(200).send(__.success('Ride cancelled.'));
 };
 
 const rideHistory = async (req, res) => {
@@ -271,6 +313,7 @@ router.post('/isLoggedIn', isLoggedIn);
 router.post('/logout', auth, logout);
 router.post('/token', auth, token);
 router.post('/requestRide', auth, rideRequest);
+router.post('/cancelRide', auth, cancelRide);
 router.get('/isGreyListed', auth, isGreyListed);
 router.post('/label', label);
 router.post('/allLabel', allLabel);

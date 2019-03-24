@@ -56,6 +56,9 @@ const userSchema = new Schema({
         type: ObjectId,
         ref: 'Ride'
     }],
+    stats: {
+        cancelled: Number
+    },
     geolocation: {
         type: {
             type: String, 

@@ -85,6 +85,9 @@ const rideSchema = new Schema({
         by: {
             type: String,
             enum: ['user', 'driver', 'partner']
+        },
+        time: {
+            type: Date,
         }
     }
 });

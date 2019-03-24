@@ -186,7 +186,7 @@ const partnerResponse = async (req, res) => {
             } 
         } catch (err) {
             console.log(err);
-            return res.status(err.response.status).send(err.response.data);
+            return res.status(400).send(err.response.data);
         }
 
     } else if (response == rideStatus.PARTNER_DECLINED) {
